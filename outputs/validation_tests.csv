@@ -1,0 +1,7 @@
+test,metric,value,condition,passed
+Subida prima de riesgo deprecia,trm_cop_per_usd,3659.1447927454246,> 3560.6200,True
+Subida tasa externa deprecia,trm_cop_per_usd,3659.1447927454246,> 3560.6200,True
+Subida tasa domestica aprecia,trm_cop_per_usd,3463.5471796746574,< 3560.6200,True
+Caida petroleo deprecia,trm_cop_per_usd,3597.368761909211,> 3560.6200,True
+Mejora exportaciones aprecia,trm_cop_per_usd,3527.408899835757,< 3560.6200,True
+Expansion monetaria deprecia,trm_cop_per_usd,3638.2782562602733,> 3560.6200,True

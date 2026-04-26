@@ -1,0 +1,53 @@
+variable,value,classification
+calibration_date,2026-04-24,metadato
+gdp_data_period,2025Q4,metadato
+gdp_real_cop_billion,271434.7141091751,observada
+gdp_nominal_cop_billion,489823.8776354271,observada
+private_consumption_real_cop_billion,209564.53419000737,observada
+private_consumption_nominal_cop_billion,367080.06792115496,observada
+government_consumption_real_cop_billion,57180.694688862866,observada
+government_consumption_nominal_cop_billion,98356.8184844803,observada
+investment_real_cop_billion,28873.79156410731,observada
+investment_nominal_cop_billion,42291.436138852834,observada
+exports_real_cop_billion,38496.496041049,observada
+exports_nominal_cop_billion,74083.84827087006,observada
+imports_real_cop_billion,62513.80971033215,observada
+imports_nominal_cop_billion,91988.29317993099,observada
+net_exports_real_cop_billion,-24017.313669283147,observada
+net_exports_nominal_cop_billion,-17904.444909060927,observada
+trm_cop_per_usd,3560.62,observada
+trm_latest_date,2026-04-24,observada
+trm_q4_2025_avg_cop_per_usd,3823.673220338983,observada
+real_exchange_rate_index,100.0,transformada
+money_supply_m3_cop_billion,997204.12,observada via proxy publico
+money_supply_reference_date,2026-03,metadato
+reserves_usd_m,66611.0,observada via proxy publico
+reserves_reference_date,2026-03,metadato
+risk_premium_pct,8.41,observada via proxy publico
+risk_premium_reference_date,2026-04-15,metadato
+oil_brent_usd_per_barrel,113.44,observada via proxy publico
+oil_reference_date,2026-04-22,metadato
+terms_of_trade_index,125.64,observada via proxy publico
+terms_of_trade_reference_date,2026-01,metadato
+fiscal_deficit_gnc_cop_billion,-117807.0,observada resumen oficial
+fiscal_deficit_gnc_pct_gdp,-6.4,observada resumen oficial
+primary_deficit_gnc_cop_billion,-65700.0,observada resumen oficial
+gross_debt_gnc_pct_gdp,64.4,observada resumen oficial
+inflation_reference_date,2026-03,metadato
+inflation_monthly_pct,0.78,observada
+inflation_ytd_pct,3.07,observada
+inflation_yoy_pct,5.56,observada
+foreign_rate_reference_date,2026-04-22,metadato
+foreign_rate_pct,3.64,observada
+policy_rate_pct,11.25,observada
+policy_rate_reference_date,2026-04-01,metadato
+current_account_usd_m,-3912.0,observada
+current_account_pct_gdp,-3.1,observada
+financial_account_inflow_usd_m,3471.0,observada
+financial_account_pct_gdp,2.7,observada
+errors_omissions_usd_m,441.0,observada
+trade_services_balance_usd_m,-4457.0,observada
+factor_income_balance_usd_m,-3680.0,observada
+current_transfers_usd_m,4224.0,observada
+bop_reference_period,2025Q4,metadato
+gdp_bp_reference_usd_m,126193.54838709677,transformada

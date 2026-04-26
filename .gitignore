@@ -1,0 +1,8 @@
+.deps/
+*.log
+*.py[cod]
+__pycache__/
+.streamlit/
+.env
+.env.*
+_zip_stage/

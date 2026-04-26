@@ -1,0 +1,14 @@
+Variable requerida,Fuente elegida,URL exacta,Frecuencia,Ultima fecha disponible,Archivo/API,Confiabilidad,Comentario
+PIB y componentes gasto reales,DANE,https://www.dane.gov.co/files/operaciones/PIB/anex-GastoConstantes-IVtrim2025.xlsx,Trimestral,2025Q4,XLSX,Alta,Descargado.
+PIB y componentes gasto corrientes,DANE,https://www.dane.gov.co/files/operaciones/PIB/anex-GastoCorriente-IVtrim2025.xlsx,Trimestral,2025Q4,XLSX,Alta,Descargado.
+TRM diaria,Datos Abiertos / Superfinanciera,https://www.datos.gov.co/resource/32sa-8pi3.csv,Diaria,2026-04-24,Socrata CSV,Alta,Descargado.
+IPC e inflacion,DANE,https://www.dane.gov.co/files/operaciones/IPC/mar2026/anex-IPC-mar2026.xlsx,Mensual,2026-03,XLSX,Alta,Descargado.
+Tasa de politica monetaria,Banco de la Republica,https://www.banrep.gov.co/es/publicaciones-investigaciones/informe-balanza-pagos/cuarto-trimestre-2025,Evento,2026-04-01,HTML,Alta,Extraida de pagina BanRep.
+Cuenta corriente y financiera,Banco de la Republica,https://www.banrep.gov.co/es/publicaciones-investigaciones/informe-balanza-pagos/cuarto-trimestre-2025,Trimestral,2025Q4,HTML,Alta,Extraida de informe.
+Tasa externa,Federal Reserve H.15,https://www.federalreserve.gov/releases/h15/,Diaria,2026-04-22,HTML,Alta,Descargado.
+Balance fiscal GNC,MHCP / BanRep informe Congreso,https://www.minhacienda.gov.co/politica-fiscal/cifras-de-politica-fiscal/gobierno-nacional-central/balance/-/document_library/dgai/view_file/2107913,Anual,2025,XLSX/HTML,Alta,El XLSX activa bloqueo anti-bot; cifras base tomadas del resumen publico BanRep/MHCP.
+M3,BanRep via Trading Economics,https://tradingeconomics.com/colombia/money-supply-m3,Mensual,2026-03,HTML proxy,Media,Proxy publico que cita Banco de la Republica.
+Reservas internacionales,BanRep via Trading Economics,https://tradingeconomics.com/colombia/money-supply-m3,Mensual,2026-03,HTML proxy,Media,Proxy publico que cita Banco de la Republica.
+Precio Brent,FRED/EIA y CountryEconomy,https://fred.stlouisfed.org/series/DCOILBRENTEU,Diaria,2026-04-22,HTML proxy,Media,FRED no resolvio DNS en shell; valor mas reciente tomado de proxy publico.
+Prima de riesgo,CountryEconomy,https://countryeconomy.com/risk-premium/colombia,Diaria,2026-04-15,HTML proxy,Media,Proxy de riesgo pais vs bonos de EE. UU.; editable en app.
+Terminos de intercambio,BanRep via Trading Economics,https://es.tradingeconomics.com/colombia/terms-of-trade,Mensual,2026-01,HTML proxy,Media,Proxy publico; BanRep documenta metodologia ITI.

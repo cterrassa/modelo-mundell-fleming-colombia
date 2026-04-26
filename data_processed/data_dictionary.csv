@@ -1,0 +1,15 @@
+variable,descripcion,unidad,frecuencia_final,fuente,clasificacion
+gdp_real_cop_billion,PIB real trimestral,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+gdp_nominal_cop_billion,PIB nominal trimestral,COP miles de millones,Trimestral,DANE,Observada
+private_consumption_real_cop_billion,Consumo privado real,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+government_consumption_real_cop_billion,Consumo publico real,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+investment_real_cop_billion,Formacion bruta de capital real,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+exports_real_cop_billion,Exportaciones reales,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+imports_real_cop_billion,Importaciones reales,"COP miles de millones, precios 2015",Trimestral,DANE,Observada
+trm_cop_per_usd,TRM vigente,COP/USD,Diaria,Datos Abiertos/SFC,Observada
+policy_rate_pct,Tasa de politica monetaria,Porcentaje efectivo anual,Evento,BanRep,Observada
+current_account_usd_m,Cuenta corriente,USD millones,Trimestral,BanRep,Observada
+financial_account_inflow_usd_m,Entradas netas de capital,USD millones,Trimestral,BanRep,Observada
+money_supply_m3_cop_billion,Agregado monetario M3,COP miles de millones,Mensual,BanRep/proxy,Observada via proxy
+oil_brent_usd_per_barrel,Precio Brent,USD/barril,Diaria,EIA/FRED/proxy,Observada via proxy
+risk_premium_pct,Prima de riesgo Colombia,Porcentaje,Diaria,CountryEconomy,Proxy

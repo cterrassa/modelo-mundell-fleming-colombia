@@ -1,0 +1,13 @@
+scenario,mechanism
+Expansion fiscal,"Aumenta la demanda interna; bajo tipo de cambio flexible, el mayor ingreso eleva importaciones y puede deteriorar la cuenta corriente. Con alta movilidad de capitales el efecto sobre producto se modera por apreciacion cambiaria."
+Contraccion fiscal,"Reduce demanda interna e importaciones; tiende a mejorar el balance externo, con menor presion de depreciacion, aunque reduce producto."
+Aumento tasa domestica,"Eleva el diferencial de tasas a favor de Colombia y atrae capitales; el peso tiende a apreciarse en el corto plazo, todo lo demas constante."
+Reduccion tasa domestica,Reduce el atractivo relativo de activos en pesos; presiona salidas de capital o menores entradas y tiende a depreciar la TRM.
+Aumento tasa Fed,Aumenta el rendimiento externo y reduce el diferencial a favor de Colombia; tiende a depreciar el peso.
+Aumento prima de riesgo,"Exige mayor retorno para mantener activos colombianos; si la tasa local no compensa, la TRM sube."
+Caida precio del petroleo,Deteriora ingresos externos de una economia exportadora de hidrocarburos; presiona depreciacion.
+Aumento precio del petroleo,Mejora ingresos externos y terminos de intercambio; reduce presiones de depreciacion.
+Demanda externa positiva,"Aumenta exportaciones, mejora cuenta corriente y tiende a apreciar la moneda."
+Salida subita de capitales,Deteriora la cuenta financiera y sube la prima de riesgo; la TRM aumenta.
+Mejora terminos de intercambio,Aumenta poder de compra de exportaciones y mejora el balance externo; tiende a apreciar.
+Deterioro cuenta corriente,Menores exportaciones y mayores importaciones amplian necesidades de financiamiento externo; presiona depreciacion.

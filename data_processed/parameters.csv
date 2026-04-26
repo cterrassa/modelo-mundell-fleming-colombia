@@ -1,0 +1,19 @@
+parameter,value,classification,note
+mpc,0.68,supuesto calibrable,Propension marginal a consumir dentro de rangos usuales para modelos macro simples.
+investment_rate_sensitivity,0.018,supuesto calibrable,Caida porcentual de la inversion por punto porcentual de aumento de la tasa real.
+money_rate_sensitivity,0.08,supuesto calibrable,"Cambio en tasa domestica, en pp, ante 1% de choque a M3."
+output_rate_sensitivity,0.1,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_export_q,0.45,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_import_q,0.25,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_import_y,1.35,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_export_y_star,1.1,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_oil_export,0.12,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+eta_terms_export,0.15,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+capital_flow_sensitivity_usd_m_per_pp,800.0,supuesto calibrable,Sensibilidad de entradas netas de capital al diferencial de tasas ajustado por riesgo.
+exchange_rate_uip_sensitivity,0.025,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+exchange_rate_oil_sensitivity,-0.1,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+exchange_rate_terms_sensitivity,-0.08,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+exchange_rate_external_demand_sensitivity,-0.06,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+exchange_rate_bp_sensitivity,0.8,supuesto calibrable,Ajuste de la TRM ante brecha de balanza de pagos como proporcion del PIB trimestral en USD.
+exchange_rate_capital_flow_sensitivity,0.5,supuesto calibrable,Parametro conductual supuesto y editable en la app.
+exchange_rate_reserve_sensitivity,0.4,supuesto calibrable,Parametro conductual supuesto y editable en la app.
