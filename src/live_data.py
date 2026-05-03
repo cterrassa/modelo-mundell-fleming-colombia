@@ -115,6 +115,44 @@ SERIES_TO_CALIBRATION_KEYS: dict[str, tuple[str, str]] = {
 }
 
 
+def fetch_fred_history(series_id: str) -> pd.DataFrame | None:
+    """Descarga la serie completa de FRED como DataFrame con columnas date, value.
+
+    Util para backtesting historico. Usa el mismo timeout que las demas calls.
+    """
+    try:
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+        df = pd.read_csv(io.StringIO(_http_get_text(url)))
+        if df.shape[1] < 2 or df.empty:
+            return None
+        df = df.copy()
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        value_col = next((c for c in df.columns if c != "date"), None)
+        if value_col is None:
+            return None
+        df = df[df[value_col].astype(str).str.strip() != "."]
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df[value_col], errors="coerce")
+        return df[["date", "value"]].dropna()
+    except Exception:
+        return None
+
+
+def fetch_trm_history() -> pd.DataFrame | None:
+    """Descarga toda la TRM diaria desde Datos Abiertos. ~10k filas."""
+    try:
+        url = "https://www.datos.gov.co/resource/32sa-8pi3.csv?$limit=20000&$order=vigenciadesde%20ASC"
+        df = pd.read_csv(io.StringIO(_http_get_text(url)))
+        if df.empty or "valor" not in df.columns:
+            return None
+        df = df.rename(columns={"valor": "value", "vigenciadesde": "date"})
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        return df[["date", "value"]].dropna()
+    except Exception:
+        return None
+
+
 def fetch_all_live() -> LiveSnapshot:
     """Intenta descargar todas las series. Devuelve overrides + status."""
     fetchers = {

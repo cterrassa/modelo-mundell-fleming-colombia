@@ -17,6 +17,7 @@ import mf_curves as curves  # noqa: E402
 import live_data  # noqa: E402
 from mf_projection import PROJECTION_SCENARIOS, project_scenario  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
+import backtest as bt  # noqa: E402
 
 
 MOBILITY_LABELS = {
@@ -282,6 +283,15 @@ def get_live_overrides() -> dict:
     """
     snapshot = live_data.fetch_all_live()
     return {"overrides": dict(snapshot["overrides"]), "status": dict(snapshot["status"]), "fetched_at": snapshot["fetched_at"]}
+
+
+@st.cache_data(ttl=86400, show_spinner="Descargando series historicas (Datos Abiertos + FRED)...")
+def get_backtest_panel() -> pd.DataFrame:
+    """Descarga TRM, Fed funds y Brent historicas y construye panel trimestral."""
+    trm = live_data.fetch_trm_history()
+    fed = live_data.fetch_fred_history("DFF")
+    brent = live_data.fetch_fred_history("DCOILBRENTEU")
+    return bt.build_exogenous_panel(trm, fed, brent)
 
 
 def fmt(value: float, decimals: int = 2) -> str:
@@ -891,8 +901,8 @@ with right:
         unsafe_allow_html=True,
     )
 
-    tab_summary, tab_curves, tab_compare, tab_table, tab_data = st.tabs(
-        ["Impacto", "Curvas del modelo", "Base vs simulado", "Cuentas nacionales y proyecciones", "Datos y supuestos"]
+    tab_summary, tab_curves, tab_compare, tab_table, tab_backtest, tab_data = st.tabs(
+        ["Impacto", "Curvas del modelo", "Base vs simulado", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
     )
 
     with tab_summary:
@@ -1020,6 +1030,61 @@ with right:
                 mime="text/csv",
                 help="Tabla completa en CSV UTF-8 con BOM (compatible con Excel en espanol).",
             )
+
+    with tab_backtest:
+        st.subheader("Backtesting contra realidad colombiana")
+        st.markdown(
+            "<div class='section-caption'>Para cada trimestre, alimentamos el modelo con el cambio observado de Fed funds y Brent, "
+            "y comparamos el cambio % de TRM predicho contra el observado. La cache se renueva cada 24 horas.</div>",
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Correr backtest", help="Descarga TRM (Datos Abiertos) + Fed funds y Brent (FRED) y corre el modelo trimestre a trimestre."):
+            try:
+                panel = get_backtest_panel()
+            except Exception as exc:
+                st.error(f"No se pudo descargar el panel: {exc}")
+                panel = pd.DataFrame()
+
+            if panel.empty:
+                st.warning("No se obtuvo panel historico. Posiblemente FRED esta inalcanzable desde el host. Intenta de nuevo en unos minutos.")
+            else:
+                bt_df = bt.run_backtest(panel, calibration, parameters=params, mobility=mobility)
+                m = bt.metrics(bt_df)
+
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Trimestres", f"{m['n']}")
+                c2.metric("RMSE (% TRM)", f"{m['rmse']:.2f}")
+                c3.metric("MAE (% TRM)", f"{m['mae']:.2f}")
+                c4.metric("Correlacion", f"{m['correlation']:.2f}" if not pd.isna(m['correlation']) else "n/d")
+
+                fig_ts = go.Figure()
+                fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["observed_trm_change_pct"], name="Observado", mode="lines+markers", line={"color": "#172033"}))
+                fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["predicted_trm_change_pct"], name="Predicho", mode="lines+markers", line={"color": "#dc2626", "dash": "dash"}))
+                fig_ts.update_layout(xaxis_title="Trimestre", yaxis_title="Cambio % TRM", hovermode="x unified")
+                st.plotly_chart(plot_theme(fig_ts, 380), width="stretch")
+
+                fig_sc = go.Figure()
+                fig_sc.add_trace(go.Scatter(x=bt_df["observed_trm_change_pct"], y=bt_df["predicted_trm_change_pct"], mode="markers", marker={"color": "#2563eb", "size": 8}, text=bt_df["quarter"], hovertemplate="%{text}: obs %{x:.2f}%, pred %{y:.2f}%<extra></extra>"))
+                rng = max(abs(bt_df["observed_trm_change_pct"]).max(), abs(bt_df["predicted_trm_change_pct"]).max(), 1.0) * 1.1
+                fig_sc.add_trace(go.Scatter(x=[-rng, rng], y=[-rng, rng], mode="lines", line={"color": "#94a3b8", "dash": "dot"}, name="45 grados", showlegend=False))
+                fig_sc.update_layout(xaxis_title="Cambio % TRM observado", yaxis_title="Cambio % TRM predicho", hovermode="closest")
+                st.plotly_chart(plot_theme(fig_sc, 380), width="stretch")
+
+                with st.expander("Tabla detallada por trimestre"):
+                    bt_view = bt_df.copy()
+                    for col in bt_view.select_dtypes(include="number").columns:
+                        bt_view[col] = bt_view[col].map(lambda x: fmt(x, 2))
+                    st.dataframe(bt_view, width="stretch", hide_index=True)
+
+                st.markdown(
+                    "<div class='note'><strong>Lectura:</strong> el modelo es estatico-comparativo y solo incluye Fed funds y Brent como exogenos en este backtest. "
+                    "Episodios donde el modelo subestima la depreciacion (ej. 2020Q2 COVID, 2022 inflacion global, 2023 ruido politico) son limites del modelo, no bugs. "
+                    "La prima de riesgo Colombia y choques de oferta domesticos no entran al backtest.</div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("Pulsa 'Correr backtest' para descargar series historicas y ver predicho vs observado. La descarga puede tomar 5-15 segundos la primera vez.")
 
     with tab_data:
         st.subheader("Calibracion base")
