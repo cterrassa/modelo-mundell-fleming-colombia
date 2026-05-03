@@ -44,7 +44,7 @@ DEFAULT_PARAMETERS: Dict[str, float] = {
     "mpc": 0.68,
     "investment_rate_sensitivity": 0.018,
     "money_rate_sensitivity": 0.08,
-    "output_rate_sensitivity": 0.10,
+    "output_rate_sensitivity": 0.50,
     "eta_export_q": 0.45,
     "eta_import_q": 0.25,
     "eta_import_y": 1.35,

@@ -2,7 +2,7 @@ parameter,value,classification,note
 mpc,0.68,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
 investment_rate_sensitivity,0.018,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
 money_rate_sensitivity,0.08,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
-output_rate_sensitivity,0.1,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
+output_rate_sensitivity,0.5,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
 eta_export_q,0.45,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
 eta_import_q,0.25,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
 eta_import_y,1.35,supuesto calibrable,Parametro conductual usado en simulate(); editable en codigo.
