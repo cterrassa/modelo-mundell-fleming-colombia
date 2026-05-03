@@ -88,7 +88,7 @@ SCENARIO_MECHANISMS: Dict[str, str] = {
 }
 
 
-MOBILITY_OPTIONS = ("perfecta", "imperfecta")
+MOBILITY_OPTIONS = ("perfecta", "imperfecta", "fijo")
 
 
 def _pct(value: float) -> float:
@@ -213,6 +213,76 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
     return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g, nx_real=nx_total)
 
 
+def _simulate_fixed_exchange_rate(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
+    """Tipo de cambio fijo, movilidad perfecta de capitales.
+
+    El banco central defiende la paridad: e queda fijo en e0; la oferta
+    monetaria se vuelve endogena (CB compra/vende reservas para mantener
+    el peg). La tasa local queda anclada por UIP. El producto se determina
+    via la cruz keynesiana con M endogena:
+
+        Y = C(Y-T) + I(r) + G + NX(e0, Y) + residuo
+
+    Resultados clave:
+    - Politica fiscal: SI mueve Y (la apreciacion no offset porque e fijo).
+    - Politica monetaria autonoma: NO mueve Y (CB no controla M).
+    - Choque externo (r*, riesgo): mueve I y por ende Y; e queda fijo.
+
+    Solucion en forma cerrada via la cruz keynesiana.
+    """
+    rate = b["rate0"] + _bp(s.foreign_rate_bp) + _bp(s.risk_premium_bp)
+    rate_delta = rate - b["rate0"]
+
+    log_e_change = 0.0  # e fijo en e0
+    q_change = 0.0
+
+    tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
+    nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
+    oil_export_boost = b["x0"] * p["eta_oil_export"] * _pct(s.oil_price_pct)
+
+    # X depende solo del shock (q=0)
+    x = b["x0"] * (1.0 + p["eta_oil_export"] * _pct(s.oil_price_pct))
+
+    # I depende de r y h
+    inv = b["i0"] * (1.0 + _pct(s.investment_autonomous_pct) - p["investment_rate_sensitivity"] * rate_delta)
+    g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
+    c0_shocked = b["c0"] * (1.0 + _pct(s.consumption_autonomous_pct))
+
+    # Cruz keynesiana: Y = C0(1+a) + mpc(Y - Y0 - tax) + I + G + X - M(Y) + nx_aut + residuo
+    # Con M(Y) = M0 (1 + eta_my * (Y/Y0 - 1)):
+    # Y(1 - mpc + M0*eta_my/Y0) = C0(1+a) - mpc*(Y0 + tax) + I + G + X - M0 + M0*eta_my + nx_aut + residuo
+    autonomous = (
+        c0_shocked
+        - p["mpc"] * (b["y0"] + tax_change)
+        + inv
+        + g
+        + x
+        - b["m0"] + b["m0"] * p["eta_import_y"]
+        + nx_aut
+        + b["residual0"]
+    )
+    multiplier_inv = 1.0 - p["mpc"] + b["m0"] * p["eta_import_y"] / b["y0"]
+    if abs(multiplier_inv) < 1e-9:
+        y = b["y0"]
+    else:
+        y = autonomous / multiplier_inv
+
+    delta_y_pct = (y / b["y0"] - 1.0) * 100.0
+
+    c = c0_shocked + p["mpc"] * (y - b["y0"] - tax_change)
+    m = b["m0"] * (1.0 + p["eta_import_y"] * (y / b["y0"] - 1.0))
+    nx_total = x - m + nx_aut
+
+    nx_change_usd_m = (nx_total - b["nx0"]) * 1000.0 / b["e0"]
+    ca = b["ca0"] + nx_change_usd_m
+    # En fijo, BP=0 implica KA = -CA - errores (intervencion via reservas
+    # absorbe el desbalance restante; la balanza siempre cuadra).
+    ka = -ca - b["errors0"]
+    bp_gap = 0.0
+
+    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g, nx_real=nx_total)
+
+
 def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
     """Movilidad de capitales imperfecta: la curva BP tiene pendiente positiva,
     el banco central puede mover la tasa autonomamente y la TRM ajusta proporcional
@@ -304,6 +374,8 @@ def simulate(
 
     if mobility == "perfecta":
         return _simulate_perfect_mobility(b, shock_obj, params)
+    if mobility == "fijo":
+        return _simulate_fixed_exchange_rate(b, shock_obj, params)
     return _simulate_imperfect_mobility(b, shock_obj, params)
 
 
@@ -354,6 +426,18 @@ def validate_signs(
             ("Tasa Banrep no tiene efecto en perfecta", Shock(domestic_policy_rate_bp=100), "trm_cop_per_usd", "==", base["trm_cop_per_usd"]),
         ]
         all_tests = common_tests + textbook_tests
+    elif mobility == "fijo":
+        # En fijo se reescriben algunos common_tests porque la TRM no se mueve.
+        common_tests = [
+            ("Expansion monetaria sin efecto en M (fijo)", Shock(money_supply_pct=10), "gdp_real_cop_billion", "==", base["gdp_real_cop_billion"]),
+        ]
+        fixed_tests = [
+            ("Expansion fiscal sube Y (regimen fijo)", Shock(government_spending_pct=5), "gdp_real_cop_billion", ">", base["gdp_real_cop_billion"]),
+            ("Subida tasa Fed reduce Y (via inversion)", Shock(foreign_rate_bp=100), "gdp_real_cop_billion", "<", base["gdp_real_cop_billion"]),
+            ("TRM constante en regimen fijo", Shock(government_spending_pct=5), "trm_cop_per_usd", "==", base["trm_cop_per_usd"]),
+            ("Mejora externa sube Y (regimen fijo)", Shock(nx_autonomous_pct=1), "gdp_real_cop_billion", ">", base["gdp_real_cop_billion"]),
+        ]
+        all_tests = common_tests + fixed_tests
     else:
         imperfect_tests = [
             ("Subida tasa Banrep aprecia", Shock(domestic_policy_rate_bp=100), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),

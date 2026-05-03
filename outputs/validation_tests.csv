@@ -16,3 +16,8 @@ Expansion monetaria deprecia,trm_cop_per_usd,3619.7655433411087,> 3560.6200,True
 Expansion monetaria sube Y,gdp_real_cop_billion,272760.1675761815,> 271434.7141,True,imperfecta
 Subida tasa Banrep aprecia,trm_cop_per_usd,3487.7493512381297,< 3560.6200,True,imperfecta
 Expansion fiscal sube Y (movilidad imperfecta),gdp_real_cop_billion,274680.9712867774,> 271434.7141,True,imperfecta
+Expansion monetaria sin efecto en M (fijo),gdp_real_cop_billion,271434.71410917514,== 271434.7141,True,fijo
+Expansion fiscal sube Y (regimen fijo),gdp_real_cop_billion,275966.2691844253,> 271434.7141,True,fijo
+Subida tasa Fed reduce Y (via inversion),gdp_real_cop_billion,270610.94755877275,< 271434.7141,True,fijo
+TRM constante en regimen fijo,trm_cop_per_usd,3560.62,== 3560.6200,True,fijo
+Mejora externa sube Y (regimen fijo),gdp_real_cop_billion,275736.9401069998,> 271434.7141,True,fijo

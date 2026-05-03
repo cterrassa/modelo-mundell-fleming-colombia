@@ -23,18 +23,24 @@ import equations as eqs  # noqa: E402
 
 
 MOBILITY_LABELS = {
-    "perfecta": "Movilidad perfecta de capitales",
-    "imperfecta": "Movilidad imperfecta (calibracion Colombia)",
+    "perfecta": "Flexible + movilidad perfecta",
+    "imperfecta": "Flexible + movilidad imperfecta (Colombia)",
+    "fijo": "Tipo de cambio fijo + movilidad perfecta",
 }
 MOBILITY_DESCRIPTIONS = {
     "perfecta": (
-        "Caso canonico: la tasa local queda anclada por la paridad descubierta de "
-        "intereses. La politica fiscal NO mueve el producto (ΔY=0), todo el ajuste "
-        "pasa por el tipo de cambio. La politica monetaria SI es efectiva."
+        "Caso canonico: tipo de cambio flexible y tasa local anclada por la paridad "
+        "descubierta de intereses. La politica fiscal NO mueve Y (ΔY=0); el ajuste "
+        "pasa por la TRM. La politica monetaria SI mueve Y."
     ),
     "imperfecta": (
-        "Calibracion empirica con movilidad finita: la tasa domestica es endogena "
-        "y la politica fiscal SI mueve el producto. Cercano a la realidad colombiana."
+        "Tipo de cambio flexible con movilidad finita: la tasa domestica es endogena "
+        "y la politica fiscal SI mueve el producto. Calibracion empirica para Colombia."
+    ),
+    "fijo": (
+        "El banco central defiende la paridad: TRM no se mueve, M se vuelve endogena. "
+        "La politica fiscal SI mueve Y (no hay apreciacion que offset). La politica "
+        "monetaria autonoma NO mueve Y (CB no controla M independientemente)."
     ),
 }
 
