@@ -165,6 +165,36 @@ Limitaciones reconocidas:
 
 Estos son limites teoricos del modelo, no bugs.
 
+## Corto plazo vs largo plazo
+
+El modelo Mundell-Fleming es de **corto plazo** por construccion: precios
+fijos, Y puede desviarse de Y_n. Para contextualizar pedagogicamente, el
+modulo `src/long_run.py` implementa el equilibrio de **largo plazo** del
+mismo marco abierto pequeno (Mankiw cap. 6, no cap. 13):
+
+```text
+Y = Y_n          (exogeno, definido por capital y trabajo)
+C = C(Y_n - T)
+I = I(r),  r = r* + prima de riesgo
+NX = Y_n - C - I - G - residuo
+e ajusta para que NX(e) cumpla la igualdad
+```
+
+Resultados clave que cambian entre SR y LR:
+
+- **Politica monetaria es neutral en LR** (clasica neutralidad de Friedman):
+  un choque a M solo mueve precios y tipo de cambio nominal, no Y. En SR si
+  mueve Y porque los precios no han ajustado.
+- **Choques externos** (Fed, prima de riesgo) tienen efecto solo via la
+  inversion (`I` responde a `r = r* + risk`). En SR amplifican el efecto via
+  la respuesta de la LM a la tasa (Y se desvia de Y_n).
+- **Politica fiscal**: en SR-perfecta y en LR ya da el resultado canonico
+  (Y constante, NX absorbe). En SR-imperfecta tambien mueve Y.
+
+El tab "Corto vs largo plazo" muestra la comparacion lado a lado para el
+choque activo. El SR respeta el modo de movilidad seleccionado; el LR siempre
+asume movilidad perfecta porque es el referente teorico de Mankiw cap. 6.
+
 ## Limitaciones generales
 
 El modelo es comparativo-estatico y linealizado alrededor del estado base.

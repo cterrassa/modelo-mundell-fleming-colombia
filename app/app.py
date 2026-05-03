@@ -18,6 +18,7 @@ import live_data  # noqa: E402
 from mf_projection import PROJECTION_SCENARIOS, project_scenario  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
 import backtest as bt  # noqa: E402
+from long_run import simulate_long_run  # noqa: E402
 
 
 MOBILITY_LABELS = {
@@ -651,8 +652,8 @@ with right:
         "COP miles de millones, precios constantes de 2015. No es PIB anual ni pesos corrientes."
     )
 
-    tab_summary, tab_curves, tab_compare, tab_table, tab_backtest, tab_data = st.tabs(
-        ["Impacto", "Curvas del modelo", "Base vs simulado", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
+    tab_summary, tab_curves, tab_compare, tab_horizon, tab_table, tab_backtest, tab_data = st.tabs(
+        ["Impacto", "Curvas del modelo", "Base vs simulado", "Corto vs largo plazo", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
     )
 
     with tab_summary:
@@ -704,6 +705,67 @@ with right:
         for col in numeric_cols:
             scenario_view[col] = scenario_view[col].map(lambda x: fmt(x, 2))
         st.dataframe(scenario_view, width="stretch", hide_index=True)
+
+    with tab_horizon:
+        st.subheader("Corto plazo (este modelo) vs Largo plazo (Mankiw cap. 6)")
+        st.markdown(
+            "**Punto de partida.** Este simulador implementa el **modelo Mundell-Fleming de "
+            "corto plazo** (Mankiw cap. 13). Asume **precios fijos**, por lo que el producto Y "
+            "puede desviarse de su nivel natural Y_n ante choques de politica. Las curvas IS-LM-BP "
+            "que ves operan en este marco. La movilidad perfecta de capitales es el caso textbook "
+            "puro; la imperfecta agrega una pendiente positiva a la BP."
+        )
+        st.markdown(
+            "**Largo plazo (referencia teorica).** En el LP los precios ajustan: Y vuelve a Y_n "
+            "y el tipo de cambio real absorbe los desbalances. Resultados clave que cambian:"
+        )
+        st.markdown(
+            "- **Politica monetaria es neutral en LR** (clasica neutralidad): un choque a M solo "
+            "mueve precios y tipo de cambio nominal, no Y. En SR si mueve Y porque los precios "
+            "no han ajustado todavia.\n"
+            "- **Choques externos** (Fed, prima de riesgo) tienen efecto solo via la inversion "
+            "(`I` responde a `r = r* + risk`). En SR amplifican el efecto via la respuesta de la "
+            "LM (Y se desvia de Y_n).\n"
+            "- **Politica fiscal** mueve NX en ambos plazos (en SR perfecta: ya da el resultado "
+            "canonico; en SR imperfecta: tambien mueve Y; en LR: solo mueve NX, Y queda en Y_n)."
+        )
+
+        st.markdown("---")
+        st.markdown(f"**Comparacion para el choque activo (modo {MOBILITY_LABELS[mobility]})**")
+        st.caption(
+            "El SR mostrado abajo respeta el modo de movilidad seleccionado en el panel izquierdo. "
+            "El LR siempre asume movilidad perfecta porque es el referente teorico de Mankiw cap. 6."
+        )
+
+        sr_result = sim
+        lr_result = simulate_long_run(calibration, shock, params)
+
+        comp_rows = [
+            ("PIB real (COP bn)", sr_result["gdp_real_cop_billion"], lr_result["gdp_real_cop_billion"]),
+            ("Brecha producto (%)", sr_result["output_gap_pct"], lr_result["output_gap_pct"]),
+            ("TRM (COP/USD)", sr_result["trm_cop_per_usd"], lr_result["trm_cop_per_usd"]),
+            ("Cambio TRM (%)", sr_result["trm_change_pct"], lr_result["trm_change_pct"]),
+            ("Tasa domestica (%)", sr_result["policy_rate_pct"], lr_result["policy_rate_pct"]),
+            ("Consumo real (COP bn)", sr_result["private_consumption_real_cop_billion"], lr_result["private_consumption_real_cop_billion"]),
+            ("Inversion real (COP bn)", sr_result["investment_real_cop_billion"], lr_result["investment_real_cop_billion"]),
+            ("NX real (COP bn)", sr_result["net_exports_real_cop_billion"], lr_result["net_exports_real_cop_billion"]),
+            ("Cuenta corriente (USD m)", sr_result["current_account_usd_m"], lr_result["current_account_usd_m"]),
+        ]
+        comp_df = pd.DataFrame(
+            [{"Variable": v, "Corto plazo": sr_v, "Largo plazo": lr_v, "SR - LR": sr_v - lr_v}
+             for v, sr_v, lr_v in comp_rows]
+        )
+        for col in ["Corto plazo", "Largo plazo", "SR - LR"]:
+            comp_df[col] = comp_df[col].map(lambda x: fmt(x, 2))
+        st.dataframe(comp_df, width="stretch", hide_index=True)
+
+        st.info(
+            "**Como leer las diferencias.** Si SR != LR, el choque produce desviaciones transitorias del "
+            "equilibrio de pleno empleo que el ajuste de precios eventualmente corrige. La columna "
+            "'SR - LR' es una medida cruda de cuanto trabajo le toca al ajuste de precios. "
+            "Para choque monetario puro debe converger a 0 en LR (neutralidad). Para choques fiscales "
+            "puros las diferencias deberian ser pequenas (la transmision via NX domina en ambos plazos)."
+        )
 
     with tab_table:
         st.subheader("Cuentas nacionales y proyecciones a 5 anios")
