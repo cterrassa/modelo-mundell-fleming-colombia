@@ -132,14 +132,24 @@ def _baseline(calibration: Mapping[str, float]) -> Dict[str, float]:
 
 def _result(b: Dict[str, float], shock_obj: Shock, y: float, rate: float,
             x: float, m: float, ca: float, ka: float, bp_gap: float,
-            log_e_change: float) -> Dict[str, float]:
+            log_e_change: float, c_priv: float | None = None,
+            inv: float | None = None, g_real: float | None = None) -> Dict[str, float]:
     e_change = math.exp(log_e_change) - 1.0
+    if c_priv is None:
+        c_priv = b["c0"]
+    if inv is None:
+        inv = b["i0"]
+    if g_real is None:
+        g_real = b["g0"]
     return {
         "trm_cop_per_usd": b["e0"] * math.exp(log_e_change),
         "trm_change_pct": e_change * 100.0,
         "gdp_real_cop_billion": y,
         "output_gap_pct": (y / b["y0"] - 1.0) * 100.0,
         "policy_rate_pct": rate,
+        "private_consumption_real_cop_billion": c_priv,
+        "investment_real_cop_billion": inv,
+        "government_consumption_real_cop_billion": g_real,
         "exports_real_cop_billion": x,
         "imports_real_cop_billion": m,
         "net_exports_real_cop_billion": x - m,
@@ -191,7 +201,7 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
     ka = -ca - b["errors0"]
     bp_gap = 0.0
 
-    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change)
+    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g)
 
 
 def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
@@ -250,7 +260,7 @@ def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, 
 
         log_e_change = direct_e_change - p["exchange_rate_bp_sensitivity"] * (bp_gap / b["gdp_usd_m"])
 
-    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change)
+    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g)
 
 
 def simulate(
