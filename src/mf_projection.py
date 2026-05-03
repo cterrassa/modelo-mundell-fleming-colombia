@@ -40,35 +40,58 @@ class ProjectionScenario:
 
 
 def _const_path(shock: Shock) -> list[Shock]:
-    """Repite el mismo choque cada anio del horizonte."""
+    """Repite el mismo choque cada anio del horizonte (sin cumulacion)."""
     return [Shock(**{f: getattr(shock, f) for f in Shock.__dataclass_fields__}) for _ in range(HORIZON_YEARS)]
+
+
+def _recurring_path(annual_shock: Shock) -> list[Shock]:
+    """Choque recurrente lineal: el ano N aplica N veces el choque anual.
+
+    Asi un escenario de "expansion fiscal +5% G recurrente" significa que cada
+    ano G crece 5 puntos adicionales sobre el ano anterior. En el ano 5 el
+    choque acumulado es +25% de G respecto al base. Este es el modo por defecto
+    para que los 5 anos no salgan planos cuando el modelo es estatico.
+    """
+    paths = []
+    for year_n in range(1, HORIZON_YEARS + 1):
+        cumulated = Shock(**{
+            field: getattr(annual_shock, field) * year_n
+            for field in Shock.__dataclass_fields__
+        })
+        paths.append(cumulated)
+    return paths
 
 
 PROJECTION_SCENARIOS: dict[str, ProjectionScenario] = {
     "Base (sin choques)": ProjectionScenario(
         name="Base (sin choques)",
-        description="Las exogenas se mantienen en su valor del calibrado base. Sirve como referencia.",
+        description="Las exogenas se mantienen en su valor del calibrado base. Sirve como referencia: "
+                    "los 5 anios coinciden con el equilibrio inicial.",
         annual_shocks=_const_path(Shock()),
     ),
-    "Expansion fiscal sostenida": ProjectionScenario(
-        name="Expansion fiscal sostenida",
-        description="Gasto publico +5% por encima del nivel base durante 5 anios.",
-        annual_shocks=_const_path(Shock(government_spending_pct=5.0)),
+    "Expansion fiscal recurrente (+5% G/anio)": ProjectionScenario(
+        name="Expansion fiscal recurrente (+5% G/anio)",
+        description="Gasto publico crece 5 puntos cada anio: +5% en ano 1, +10% en ano 2, "
+                    "+25% en ano 5. Acumulacion lineal.",
+        annual_shocks=_recurring_path(Shock(government_spending_pct=5.0)),
     ),
-    "Subida tasa Fed sostenida": ProjectionScenario(
-        name="Subida tasa Fed sostenida",
-        description="Tasa Fed +200 pbs por encima del nivel base durante 5 anios. Stress de financiamiento externo.",
-        annual_shocks=_const_path(Shock(foreign_rate_bp=200.0)),
+    "Subida tasa Fed recurrente (+50 bps/anio)": ProjectionScenario(
+        name="Subida tasa Fed recurrente (+50 bps/anio)",
+        description="Fed sube 50 pbs cada anio: +50 en ano 1, +100 en ano 2, +250 en ano 5. "
+                    "Stress de financiamiento externo creciente.",
+        annual_shocks=_recurring_path(Shock(foreign_rate_bp=50.0)),
     ),
-    "Ciclo petrolero adverso": ProjectionScenario(
-        name="Ciclo petrolero adverso",
-        description="Precio Brent -20% durante 5 anios.",
-        annual_shocks=_const_path(Shock(oil_price_pct=-20.0)),
+    "Ciclo petrolero adverso recurrente (-5% Brent/anio)": ProjectionScenario(
+        name="Ciclo petrolero adverso recurrente (-5% Brent/anio)",
+        description="Precio Brent cae 5% cada anio: -5% en ano 1, -25% acumulado en ano 5. "
+                    "Deterioro sostenido de terminos de intercambio.",
+        annual_shocks=_recurring_path(Shock(oil_price_pct=-5.0)),
     ),
-    "Subida prima de riesgo": ProjectionScenario(
-        name="Subida prima de riesgo",
-        description="Prima de riesgo Colombia +200 pbs sostenida durante 5 anios.",
-        annual_shocks=_const_path(Shock(risk_premium_bp=200.0)),
+    "Subida prima de riesgo recurrente (+50 bps/anio)": ProjectionScenario(
+        name="Subida prima de riesgo recurrente (+50 bps/anio)",
+        description="Prima de riesgo Colombia sube 50 pbs cada anio: +50 en ano 1, +250 en ano 5. "
+                    "Riesgo soberano creciente.",
+        annual_shocks=_recurring_path(Shock(risk_premium_bp=50.0)),
     ),
 }
 
