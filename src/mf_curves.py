@@ -32,6 +32,14 @@ def shock_value(shock: Shock, field: str) -> float:
     return float(getattr(shock, field))
 
 
+def bp(value: float) -> float:
+    return value / 100.0
+
+
+def pct(value: float) -> float:
+    return value / 100.0
+
+
 def base_components(calibration: Mapping[str, float]) -> dict[str, float]:
     """Lee niveles del calibrado base."""
     y0 = float(calibration["gdp_real_cop_billion"])

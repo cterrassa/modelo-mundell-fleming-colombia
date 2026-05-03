@@ -19,6 +19,7 @@ from mf_projection import PROJECTION_SCENARIOS, project_scenario  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
 import backtest as bt  # noqa: E402
 from long_run import simulate_long_run  # noqa: E402
+import equations as eqs  # noqa: E402
 
 
 MOBILITY_LABELS = {
@@ -654,14 +655,58 @@ with right:
         "COP miles de millones, precios constantes de 2015. No es PIB anual ni pesos corrientes."
     )
 
-    tab_summary, tab_curves, tab_compare, tab_horizon, tab_table, tab_backtest, tab_data = st.tabs(
-        ["Impacto", "Curvas del modelo", "Base vs simulado", "Corto vs largo plazo", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
+    tab_summary, tab_eqs, tab_curves, tab_compare, tab_horizon, tab_table, tab_backtest, tab_data = st.tabs(
+        ["Impacto", "Ecuaciones de equilibrio", "Curvas del modelo", "Base vs simulado", "Corto vs largo plazo", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
     )
 
     with tab_summary:
         st.subheader("Cambios frente al escenario base")
         st.caption("Cada barra es el cambio % o p.p. frente al base. Verde = apreciacion / mejora externa; rojo = depreciacion / deterioro.")
         st.plotly_chart(impact_figure(calibration, base, sim), width="stretch")
+
+    with tab_eqs:
+        st.subheader("Ecuaciones de equilibrio: caso base vs caso impactado")
+        st.markdown(
+            "Las tablas muestran cada bloque del modelo con su forma simbolica, los valores numericos del **caso "
+            "base** (sin choques) y los del **caso impactado** (con el choque seleccionado). La columna `delta` es "
+            "la diferencia simulado - base; `delta_pct` es el cambio porcentual. "
+            "Una identidad (Y = C + I + G + NX + residuo) se verifica al final del bloque."
+        )
+
+        st.markdown("### 1. Identidad de gasto agregado")
+        df_is = eqs.is_identity_rows(base, sim, calibration)
+        df_is_disp = df_is.copy()
+        for col in ["base", "escenario", "delta"]:
+            df_is_disp[col] = df_is_disp[col].map(lambda v: f"{v:,.1f}")
+        df_is_disp["delta_pct"] = df_is_disp["delta_pct"].map(lambda v: "n/a" if pd.isna(v) else f"{v:+.2f}%")
+        st.dataframe(df_is_disp, width="stretch", hide_index=True)
+
+        st.markdown("### 2. Bloque monetario (LM) y paridad descubierta (UIP)")
+        df_mon = eqs.monetary_block_rows(base, sim, calibration, shock, params)
+        df_mon_disp = df_mon.copy()
+        for col in ["base", "escenario", "delta"]:
+            df_mon_disp[col] = df_mon_disp[col].map(lambda v: f"{v:,.4f}")
+        df_mon_disp["delta_pct"] = df_mon_disp["delta_pct"].map(lambda v: "n/a" if pd.isna(v) else f"{v:+.2f}%")
+        st.dataframe(df_mon_disp, width="stretch", hide_index=True)
+
+        st.markdown("### 3. Bloque externo (TRM, balanza de pagos)")
+        df_ext = eqs.external_block_rows(base, sim, calibration)
+        df_ext_disp = df_ext.copy()
+        for col in ["base", "escenario", "delta"]:
+            df_ext_disp[col] = df_ext_disp[col].map(lambda v: f"{v:,.2f}")
+        df_ext_disp["delta_pct"] = df_ext_disp["delta_pct"].map(lambda v: "n/a" if pd.isna(v) else f"{v:+.2f}%")
+        st.dataframe(df_ext_disp, width="stretch", hide_index=True)
+
+        st.markdown("### 4. Verificacion de identidad")
+        check = eqs.identity_check(base, sim)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Y simulado (LHS)", f"{check['lhs']:,.1f}")
+        c2.metric("C+I+G+NX (RHS)", f"{check['rhs_no_residuo']:,.1f}")
+        c3.metric("Residuo de cierre", f"{check['residuo']:,.1f}", f"{check['drift']:+.4f} drift vs base")
+        st.caption(
+            "El residuo deberia ser identico al residuo del caso base (drift ≈ 0). Drift no nulo indica que el "
+            "solver produjo un punto que se aparta de la identidad — bug numerico, no comportamiento esperado."
+        )
 
     with tab_curves:
         st.subheader("Equilibrio IS*-LM* en el plano (Y, TRM)")
