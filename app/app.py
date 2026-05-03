@@ -14,6 +14,7 @@ sys.path.insert(0, str(SRC))
 
 from mf_model import MOBILITY_OPTIONS, SCENARIOS, SCENARIO_MECHANISMS, Shock, simulate  # noqa: E402
 import mf_curves as curves  # noqa: E402
+import live_data  # noqa: E402
 
 
 MOBILITY_LABELS = {
@@ -267,6 +268,18 @@ def load_data():
             calibration[row["variable"]] = value
     params = dict(zip(params_df["parameter"], params_df["value"].astype(float)))
     return calibration, params, scenarios, dictionary, sources
+
+
+@st.cache_data(ttl=3600, show_spinner="Consultando series oficiales (TRM, FRED)...")
+def get_live_overrides() -> dict:
+    """Refresca TRM, Fed funds y Brent desde fuentes oficiales con cache 1h.
+
+    Si una fuente falla, conserva el valor del snapshot. Devuelve dict con
+    ``overrides`` (a aplicar sobre la calibracion) y ``status`` (banderas por
+    serie).
+    """
+    snapshot = live_data.fetch_all_live()
+    return {"overrides": dict(snapshot["overrides"]), "status": dict(snapshot["status"]), "fetched_at": snapshot["fetched_at"]}
 
 
 def fmt(value: float, decimals: int = 2) -> str:
@@ -597,7 +610,21 @@ def scale_shock(shock: Shock, factor: float) -> Shock:
     return Shock(**{field: float(getattr(shock, field)) * factor for field in Shock.__dataclass_fields__})
 
 
-calibration, params, scenarios_df, dictionary_df, sources_df = load_data()
+calibration_snapshot, params, scenarios_df, dictionary_df, sources_df = load_data()
+live = get_live_overrides()
+calibration = {**calibration_snapshot, **live["overrides"]}
+
+
+def _live_label(series: str, fallback_date: str) -> str:
+    info = live["status"].get(series, {})
+    if info.get("ok"):
+        return f"en vivo {info.get('date', '')}"
+    return f"snapshot {fallback_date}"
+
+
+trm_badge = _live_label("trm", calibration_snapshot.get("trm_latest_date", "n.d."))
+fed_badge = _live_label("fed_funds", calibration_snapshot.get("foreign_rate_reference_date", "n.d."))
+brent_badge = _live_label("brent", calibration_snapshot.get("oil_reference_date", "n.d."))
 
 
 st.markdown(
@@ -610,16 +637,22 @@ st.markdown(
         depreciacion del peso colombiano.
       </p>
       <div class="badge-row">
-        <span class="badge">Calibracion: {calibration.get("calibration_date", "n.d.")}</span>
-        <span class="badge">Cuentas nacionales: {calibration.get("gdp_data_period", "n.d.")}</span>
-        <span class="badge">PIB real: precios constantes de 2015</span>
-        <span class="badge">TRM: {calibration.get("trm_latest_date", "n.d.")}</span>
-        <span class="badge">Proxies visibles en Datos y supuestos</span>
+        <span class="badge">Cuentas nacionales: {calibration.get("gdp_data_period", "n.d.")} (snapshot)</span>
+        <span class="badge">TRM: {calibration.get("trm_cop_per_usd", 0):,.2f} COP/USD &middot; {trm_badge}</span>
+        <span class="badge">Fed funds: {calibration.get("foreign_rate_pct", 0):.2f}% &middot; {fed_badge}</span>
+        <span class="badge">Brent: USD {calibration.get("oil_brent_usd_per_barrel", 0):.2f} &middot; {brent_badge}</span>
+        <span class="badge">Refrescado: {live["fetched_at"]}</span>
       </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
+
+refresh_col, _ = st.columns([0.22, 0.78])
+with refresh_col:
+    if st.button("Refrescar datos en vivo", help="Re-consulta TRM (Datos Abiertos), Fed funds y Brent (FRED). Ignora la cache."):
+        get_live_overrides.clear()
+        st.rerun()
 
 st.markdown(
     """
