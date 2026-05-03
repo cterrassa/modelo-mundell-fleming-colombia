@@ -2,16 +2,130 @@
 
 ## Que hace y que no hace este simulador
 
-Es una herramienta academica de estatica comparativa para visualizar los
-mecanismos del modelo Mundell-Fleming aplicado a Colombia. Tres usos validos:
+Es una herramienta academica de estatica comparativa que implementa el
+**modelo Mundell-Fleming de Mankiw cap. 13** aplicado a Colombia. Tres usos
+validos:
 
-- Reproducir resultados textbook de Mankiw cap. 13 (movilidad perfecta).
+- Reproducir resultados textbook de Mundell-Fleming flexible (movilidad
+  perfecta de capitales).
 - Explorar el comportamiento bajo movilidad imperfecta calibrada con datos
   colombianos.
-- Proyectar de forma deterministica a 5 anios el equilibrio bajo escenarios
-  predefinidos, ancladas al ultimo anio observado.
+- Proyectar de forma deterministica a 5 anos el equilibrio bajo escenarios
+  predefinidos, anclado al ultimo ano observado.
 
 NO pronostica la TRM, NO usa Monte Carlo, NO genera intervalos estocasticos.
+
+## Modelo
+
+### Convencion de variables
+
+- Y = PIB real trimestral (COP miles de millones, precios constantes 2015).
+- TRM = COP por USD. **Mayor TRM = peso depreciado** (convencion Banrep).
+- r = tasa de interes domestica (% anual).
+- r* = tasa externa (Fed funds).
+- C, I, G, X, M = componentes del gasto agregado en COP bn reales.
+
+### Bloque comun (estatica comparativa)
+
+```text
+Y = C + I + G + NX + residuo
+C = C0 + c (Y - T)
+I = I0 (1 - b (r - r0))
+NX = X(TRM, oil) - M(TRM, Y) + NX_aut
+X = X0 (1 + eta_export_q * q + eta_oil_export * oil_pct)
+M = M0 (1 + eta_import_y * dY/Y0 - eta_import_q * q)
+```
+
+Donde `q = TRM/TRM0 - 1` es la depreciacion del peso, `c` la propension
+marginal a consumir y `b` la sensibilidad de la inversion a la tasa real.
+
+### Diagrama IS\*-LM\* en plano (Y, TRM) — Mankiw cap. 13
+
+El simulador grafica el equilibrio en el plano `(Y, TRM)`, que es el plano
+canonico de Mankiw para el modelo MF de economia abierta pequena con
+movilidad de capitales:
+
+- **Curva IS\* (azul, pendiente positiva).** Para cada nivel de Y, despeja
+  la TRM que hace cumplir la identidad
+  `Y = C + I + G + NX(TRM, Y) + residuo`. Mayor Y demandado por el gasto
+  requiere mayor TRM (peso depreciado) que genere el NX adicional. Los
+  choques fiscales (G, T) y los choques reales (Brent, NX_aut) desplazan
+  IS\*.
+
+- **Curva LM\* (verde, vertical).** Es el Y consistente con el mercado
+  monetario dada la tasa local r y la oferta monetaria M. En forma cerrada:
+  `Y_LM = Y0 (1 + ((r - r0) + kappa_M * M%) / kappa_Y)`. Choques monetarios
+  o externos (Fed, prima de riesgo) desplazan LM\*.
+
+- **Equilibrio:** interseccion. La flecha roja marca el movimiento del
+  equilibrio entre el escenario base y el escenario simulado.
+
+### Movilidad perfecta (Mankiw cap. 13 puro)
+
+La curva BP es horizontal (no se grafica): la tasa local queda anclada por
+paridad descubierta de intereses ajustada por riesgo:
+
+```text
+r = r* + risk_premium
+```
+
+Resolucion en forma cerrada (sin iteracion):
+1. r queda determinado por UIP.
+2. Y_LM queda determinado por la LM invertida dada r y M.
+3. TRM absorbe el desbalance de la IS via NX. Resolvemos analiticamente
+   el q que hace `NX(q) = NX_required` en el punto Y_LM.
+
+Resultados canonicos esperados:
+- **Politica fiscal:** ΔG > 0 desplaza IS\* hacia abajo (para cada Y, hace
+  falta menor TRM porque G ya cubre parte del gasto). LM\* sin cambio
+  (M, r* sin cambio). Equilibrio: Y constante, TRM cae (peso aprecia).
+- **Politica monetaria:** ΔM > 0 desplaza LM\* hacia la derecha (Y_LM
+  mayor para r dada). IS\* sin cambio. Equilibrio: Y sube, TRM sube
+  (depreciacion).
+- **Choque a tasa Banrep:** sin efecto. La tasa esta anclada por UIP.
+
+### Movilidad imperfecta (calibracion empirica para Colombia)
+
+La tasa local se desvia de UIP. Los flujos de capital responden con
+elasticidad finita al diferencial de tasas. La TRM ajusta proporcional a
+un saldo residual de balanza de pagos. Se resuelve por iteracion de punto
+fijo (12 pasos).
+
+El banco central sigue una regla de Taylor simplificada:
+
+```text
+r = r0 + delta_policy_rate - kappa_M (M%) + kappa_Y (gap_Y%)
+```
+
+En el plano (Y, TRM), el equilibrio se grafica igual: IS\* y LM\* se
+trazan usando la tasa endogena que el solver encontro. La unica diferencia
+con perfecta es la posicion de las curvas; el plano y la convencion son
+identicos.
+
+### Choques (Shock dataclass, 8 dimensiones)
+
+Politica domestica:
+- `government_spending_pct` (G, % del G base)
+- `tax_pct_of_gdp` (T, % del PIB)
+- `money_supply_pct` (M3, %)
+- `domestic_policy_rate_bp` (Banrep, puntos basicos; sin efecto en perfecta)
+
+Externos:
+- `foreign_rate_bp` (Fed funds, puntos basicos)
+- `risk_premium_bp` (prima Colombia, puntos basicos)
+- `oil_price_pct` (Brent, %)
+- `nx_autonomous_pct` (choque a NX, % del PIB; consolida terminos de
+  intercambio, demanda externa, X/M directos)
+
+### Parametros conductuales
+
+11 parametros editables guardados en `data_processed/parameters.csv`:
+`mpc`, `investment_rate_sensitivity`, `money_rate_sensitivity` (kappa_M),
+`output_rate_sensitivity` (kappa_Y, calibrado en 0.50 - Taylor estandar),
+`eta_export_q`, `eta_import_q`, `eta_import_y`, `eta_oil_export`,
+`capital_flow_sensitivity_usd_m_per_pp`, `exchange_rate_uip_sensitivity`,
+`exchange_rate_bp_sensitivity`. Los ultimos tres solo aplican en el modo
+imperfecta.
 
 ## Datos
 
@@ -38,86 +152,6 @@ calibrado base. La app no falla silenciosamente.
 
 La matriz completa de fuentes y URLs esta en `data_processed/source_matrix.csv`.
 
-## Modelo
-
-### Bloque comun
-
-```text
-Y = C + I + G + NX
-C = C0 + c (Y - T)
-I = I0 - b (r - r0)
-NX = X(q, oil) - M(q, Y) + NX_aut
-BP = CA + KA + errores_y_omisiones
-```
-
-Donde `q` es el tipo de cambio real (proporcional al nominal en este modelo
-estatico de precios fijos), `c` la propension marginal a consumir (`mpc`),
-`b` la sensibilidad de la inversion a la tasa real, y `NX_aut` un choque
-exogeno a las exportaciones netas.
-
-### Movilidad perfecta (textbook Mankiw cap. 13)
-
-La curva BP es horizontal: la tasa local queda anclada por paridad de
-intereses descubierta y ajustada por riesgo:
-
-```text
-r = r* + risk_premium + expected_depreciation
-```
-
-Resolucion en forma cerrada (sin iteracion):
-1. `r` queda determinado por UIP.
-2. `Y` queda determinado por la LM invertida dada `r` y `M`.
-3. `e` (TRM) absorbe el desbalance de la IS via `NX`. Resolvemos analiticamente
-   el `q_change` que hace `NX(q) = NX_required`.
-
-Resultados canonicos esperados:
-- **Politica fiscal NO mueve el producto:** `dY = 0`. La apreciacion
-  cambiaria reduce NX en exactamente lo que sube G.
-- **Politica monetaria SI es efectiva:** `dM > 0` deprecia, sube NX, sube Y.
-- **Choque a tasa Banrep no tiene efecto:** UIP la ancla.
-
-### Movilidad imperfecta (calibracion empirica para Colombia)
-
-La curva BP tiene pendiente positiva. Los flujos de capital responden con
-elasticidad finita al diferencial de tasas. La TRM ajusta proporcional a un
-saldo residual de balanza de pagos. Se resuelve por iteracion de punto fijo
-(12 pasos).
-
-El banco central sigue una regla de Taylor simplificada:
-
-```text
-r = r0 + delta_policy_rate - kappa_M (M%) + kappa_Y (gap_Y%)
-```
-
-Bajo este regimen:
-- Politica fiscal SI mueve el producto (dY > 0 con dG > 0).
-- TRM se aprecia parcialmente.
-- Politica monetaria conserva efectividad pero menor que en perfecta.
-
-### Choques (Shock dataclass, 8 dimensiones)
-
-Politica domestica:
-- `government_spending_pct` (G, % del G base)
-- `tax_pct_of_gdp` (T, % del PIB)
-- `money_supply_pct` (M3, %)
-- `domestic_policy_rate_bp` (Banrep, puntos basicos)
-
-Externos:
-- `foreign_rate_bp` (Fed funds, puntos basicos)
-- `risk_premium_bp` (prima Colombia, puntos basicos)
-- `oil_price_pct` (Brent, %)
-- `nx_autonomous_pct` (choque a NX, % del PIB; consolida terminos de
-  intercambio, demanda externa, X/M directos)
-
-### Parametros conductuales
-
-11 parametros editables guardados en `data_processed/parameters.csv`:
-`mpc`, `investment_rate_sensitivity`, `money_rate_sensitivity`,
-`output_rate_sensitivity`, `eta_export_q`, `eta_import_q`, `eta_import_y`,
-`eta_oil_export`, `capital_flow_sensitivity_usd_m_per_pp`,
-`exchange_rate_uip_sensitivity`, `exchange_rate_bp_sensitivity`. Los
-ultimos tres solo aplican en el modo imperfecta.
-
 ## Validacion
 
 `outputs/validation_tests.csv` contiene 17 pruebas de signos contra teoria
@@ -132,18 +166,22 @@ modelo:
 - Perfecta: expansion fiscal no mueve Y, aprecia, tasa Banrep no efecto
 - Imperfecta: subida tasa Banrep aprecia, expansion fiscal sube Y
 
-## Proyeccion a 5 anios
+Verificacion adicional implicita: la curva IS\* construida para el chart
+debe pasar exactamente por el equilibrio que devuelve `simulate()`. Esta
+consistencia se valida automaticamente cada vez que se renderiza el chart.
 
-Module `src/mf_projection.py`. Cada anio aplica un choque sostenido de
+## Proyeccion a 5 anos
+
+Module `src/mf_projection.py`. Cada ano aplica un choque sostenido de
 exogenos sobre la calibracion base y resuelve el equilibrio estatico. Los
-choques no se acumulan entre anios; cada periodo es independiente.
+choques no se acumulan entre anos; cada periodo es independiente.
 
 Escenarios predefinidos: Base, Expansion fiscal sostenida, Subida tasa Fed
 sostenida, Ciclo petrolero adverso, Subida prima de riesgo.
 
 La tabla consolidada en la app combina:
-- 5 anios historicos: suma anual de los 4 trimestres de `quarterly_master.csv`.
-- 5 anios proyectados: el % cambio del modelo aplicado al ultimo anio
+- 5 anos historicos: suma anual de los 4 trimestres de `quarterly_master.csv`.
+- 5 anos proyectados: el % cambio del modelo aplicado al ultimo ano
   observado (anclaje, evita estacionalidad de Q4).
 
 ## Backtesting

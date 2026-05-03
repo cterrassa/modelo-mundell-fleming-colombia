@@ -22,7 +22,7 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
 - **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
 - **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
   correlacion).
-- **Diagrama IS-LM-BP** con curvas que se redibujan en vivo.
+- **Diagrama IS\*-LM\* (Mankiw cap. 13)** en plano (Y, TRM): IS\* con pendiente positiva, LM\* vertical, equilibrio en la interseccion. Las curvas se redibujan en vivo cuando cambias choque o modo.
 
 ## Estructura
 

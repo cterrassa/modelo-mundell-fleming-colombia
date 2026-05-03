@@ -4,7 +4,3 @@ openpyxl
 lxml
 streamlit
 plotly
-requests
-beautifulsoup4
-scipy
-statsmodels

@@ -27,14 +27,12 @@ MOBILITY_LABELS = {
 }
 MOBILITY_DESCRIPTIONS = {
     "perfecta": (
-        "Caso canonico: la tasa domestica queda anclada por la paridad de intereses. "
-        "La politica fiscal NO mueve el producto (ΔY = 0); todo el ajuste pasa por la TRM. "
-        "La politica monetaria SI es efectiva."
+        "Caso canonico Mankiw cap. 13: r anclada por UIP, fiscal no mueve Y (ΔY=0), "
+        "monetaria si mueve Y."
     ),
     "imperfecta": (
-        "Calibracion empirica para Colombia: capitales con movilidad finita y prima de riesgo. "
-        "La politica fiscal SI mueve el producto y la TRM se ajusta parcialmente. "
-        "Cercano a la realidad, pero no es el resultado canonico de Mundell-Fleming."
+        "Calibracion empirica con movilidad finita: r endogena, fiscal si mueve Y. "
+        "Cercano a Colombia, no canonico Mankiw."
     ),
 }
 
@@ -125,150 +123,81 @@ def plot_theme(fig: go.Figure, height: int) -> go.Figure:
     return fig
 
 
-def equilibrium_figure(
+def equilibrium_figure_mankiw(
     calibration: dict[str, float],
     shock: Shock,
-    base_params: dict[str, float],
-    scenario_params: dict[str, float],
-    base_result: dict[str, float],
-    sim_result: dict[str, float],
-    mobility: str = "perfecta",
-) -> go.Figure:
-    data = curves.curve_data(calibration, shock, base_params, scenario_params, base_result, sim_result, mobility=mobility)
-    gaps = data["gaps"]
-    fig = go.Figure()
-    styles = [
-        ("Base", "solid", "base", 0.75),
-        ("Escenario", "dash", "scenario", 1.0),
-    ]
-    colors = {"IS": "#2563eb", "LM": "#0f9f8f", "BP=0": "#d97706"}
-    for label, dash, data_key, opacity in styles:
-        for curve_name in ["IS", "LM", "BP=0"]:
-            fig.add_trace(
-                go.Scatter(
-                    x=gaps,
-                    y=data[data_key][curve_name],
-                    mode="lines",
-                    name=f"{curve_name} {label}",
-                    line={"color": colors[curve_name], "dash": dash, "width": 2.7},
-                    opacity=opacity,
-                )
-            )
-
-    fig.add_trace(
-        go.Scatter(
-            x=[base_result["output_gap_pct"], sim_result["output_gap_pct"]],
-            y=[base_result["policy_rate_pct"], sim_result["policy_rate_pct"]],
-            mode="lines",
-            name="Movimiento del equilibrio",
-            line={"color": "#111827", "width": 1.8, "dash": "dot"},
-            showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[base_result["output_gap_pct"]],
-            y=[base_result["policy_rate_pct"]],
-            mode="markers+text",
-            name="Equilibrio base",
-            marker={"color": "#111827", "size": 11},
-            text=["Base"],
-            textposition="top center",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[sim_result["output_gap_pct"]],
-            y=[sim_result["policy_rate_pct"]],
-            mode="markers+text",
-            name="Equilibrio simulado",
-            marker={"color": "#dc2626", "size": 13, "symbol": "diamond"},
-            text=["Simulado"],
-            textposition="bottom center",
-        )
-    )
-    fig.add_vline(x=0, line_width=1, line_dash="dot", line_color="#9ca3af")
-    fig.update_layout(
-        xaxis_title="Brecha del producto frente al nivel base (%)",
-        yaxis_title="Tasa de interes domestica (%)",
-        hovermode="x unified",
-    )
-    fig.add_annotation(
-        x=sim_result["output_gap_pct"],
-        y=sim_result["policy_rate_pct"],
-        text="nuevo equilibrio",
-        showarrow=True,
-        arrowhead=2,
-        ax=30 if sim_result["output_gap_pct"] <= base_result["output_gap_pct"] else -30,
-        ay=-35,
-        bgcolor="white",
-        bordercolor="#d9e0ea",
-        borderwidth=1,
-    )
-    return plot_theme(fig, 560)
-
-
-def exchange_adjustment_figure(
-    calibration: dict[str, float],
-    shock: Shock,
-    base_params: dict[str, float],
-    scenario_params: dict[str, float],
+    params: dict[str, float],
     base_result: dict[str, float],
     sim_result: dict[str, float],
 ) -> go.Figure:
-    data = curves.exchange_pressure_data(calibration, shock, base_params, scenario_params, base_result, sim_result)
-    trms = data["trms"]
+    """Diagrama IS*-LM* en plano (Y, TRM) — Mankiw cap. 13.
+
+    IS* (azul): pendiente positiva (TRM ↑ = peso depreciado → NX ↑ → Y ↑).
+    LM* (verde): vertical en el Y consistente con el mercado monetario dada la
+    tasa local r y la oferta monetaria M.
+    """
+    base_rate = float(base_result["policy_rate_pct"])
+    sim_rate = float(sim_result["policy_rate_pct"])
+    y_base = float(base_result["gdp_real_cop_billion"])
+    y_sim = float(sim_result["gdp_real_cop_billion"])
+    trm_base = float(base_result["trm_cop_per_usd"])
+    trm_sim = float(sim_result["trm_cop_per_usd"])
+
+    span = max(abs(y_sim - y_base), 0.05 * y_base)
+    y_min = min(y_base, y_sim) - 1.5 * span
+    y_max = max(y_base, y_sim) + 1.5 * span
+
+    ys, trms_base = curves.is_star_curve(calibration, Shock(), params, base_rate, y_min, y_max)
+    _, trms_sim = curves.is_star_curve(calibration, shock, params, sim_rate, y_min, y_max)
+
+    trm_floor = min(min(trms_base), min(trms_sim), trm_base, trm_sim)
+    trm_ceil = max(max(trms_base), max(trms_sim), trm_base, trm_sim)
+    trm_pad = max((trm_ceil - trm_floor) * 0.10, 50.0)
+    trm_y_min = trm_floor - trm_pad
+    trm_y_max = trm_ceil + trm_pad
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=trms,
-            y=data["base"],
-            mode="lines",
-            name="Presion externa base",
-            line={"color": "#4b5563", "width": 2.8},
+    fig.add_trace(go.Scatter(
+        x=ys, y=trms_base, mode="lines", name="IS* base",
+        line={"color": "#2563eb", "width": 2.6},
+    ))
+    fig.add_trace(go.Scatter(
+        x=ys, y=trms_sim, mode="lines", name="IS* escenario",
+        line={"color": "#2563eb", "width": 2.6, "dash": "dash"},
+    ))
+    fig.add_trace(go.Scatter(
+        x=[y_base, y_base], y=[trm_y_min, trm_y_max], mode="lines", name="LM* base",
+        line={"color": "#0f9f8f", "width": 2.6},
+    ))
+    fig.add_trace(go.Scatter(
+        x=[y_sim, y_sim], y=[trm_y_min, trm_y_max], mode="lines", name="LM* escenario",
+        line={"color": "#0f9f8f", "width": 2.6, "dash": "dash"},
+    ))
+    fig.add_trace(go.Scatter(
+        x=[y_base], y=[trm_base], mode="markers+text",
+        marker={"color": "#111827", "size": 12},
+        text=["Base"], textposition="top right",
+        showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=[y_sim], y=[trm_sim], mode="markers+text",
+        marker={"color": "#dc2626", "size": 13, "symbol": "diamond"},
+        text=["Escenario"], textposition="bottom right",
+        showlegend=False,
+    ))
+    if abs(y_sim - y_base) + abs(trm_sim - trm_base) > 1e-6:
+        fig.add_annotation(
+            x=y_sim, y=trm_sim, ax=y_base, ay=trm_base,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=2, arrowcolor="#dc2626", arrowwidth=2,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=trms,
-            y=data["scenario"],
-            mode="lines",
-            name="Presion externa escenario",
-            line={"color": "#dc2626", "width": 2.8, "dash": "dash"},
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[base_result["trm_cop_per_usd"], sim_result["trm_cop_per_usd"]],
-            y=[base_result["balance_of_payments_gap_usd_m"], sim_result["balance_of_payments_gap_usd_m"]],
-            mode="lines+markers+text",
-            name="TRM base -> simulada",
-            line={"color": "#111827", "dash": "dot", "width": 1.8},
-            marker={"color": ["#111827", "#dc2626"], "size": [10, 13], "symbol": ["circle", "diamond"]},
-            text=["Base", "Simulado"],
-            textposition=["top center", "bottom center"],
-        )
-    )
-    fig.add_hline(y=0, line_width=1, line_dash="dot", line_color="#6b7280")
+
     fig.update_layout(
-        xaxis_title="TRM (COP/USD). Derecha = depreciacion del peso",
-        yaxis_title="Balance de pagos / presion externa (USD m)",
-        hovermode="x unified",
+        xaxis_title="Y - PIB real trimestral (COP miles de millones, precios 2015)",
+        yaxis_title="TRM (COP/USD) — sube = peso depreciado",
+        hovermode="closest",
     )
-    fig.add_annotation(
-        x=sim_result["trm_cop_per_usd"],
-        y=sim_result["balance_of_payments_gap_usd_m"],
-        text="TRM simulada",
-        showarrow=True,
-        arrowhead=2,
-        ax=-35,
-        ay=-35,
-        bgcolor="white",
-        bordercolor="#d9e0ea",
-        borderwidth=1,
-    )
-    return plot_theme(fig, 460)
+    return plot_theme(fig, 520)
 
 
 def impact_figure(calibration: dict[str, float], base_result: dict[str, float], sim_result: dict[str, float]) -> go.Figure:
@@ -296,43 +225,11 @@ def impact_figure(calibration: dict[str, float], base_result: dict[str, float], 
     return plot_theme(fig, 410)
 
 
-def trm_contribution_figure(
-    calibration: dict[str, float],
-    shock: Shock,
-    base_params: dict[str, float],
-    scenario_params: dict[str, float],
-    base_result: dict[str, float],
-    sim_result: dict[str, float],
-) -> go.Figure:
-    df = curves.trm_contribution_rows(calibration, shock, scenario_params, base_result, sim_result)
-    df["texto"] = df["puntos_pct_trm"].map(lambda value: fmt_delta(value, 2, " p.p."))
-    colors = ["#dc2626" if x > 0 else "#0f9f8f" if x < 0 else "#94a3b8" for x in df["puntos_pct_trm"]]
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            y=df["factor"],
-            x=df["puntos_pct_trm"],
-            orientation="h",
-            marker_color=colors,
-            text=df["texto"],
-            textposition="outside",
-            hovertemplate="%{y}: %{text}<extra></extra>",
-        )
-    )
-    fig.add_vline(x=0, line_width=1, line_color="#667085")
-    fig.update_layout(
-        xaxis_title="Contribucion aproximada al cambio de TRM (puntos porcentuales)",
-        yaxis_title="",
-        showlegend=False,
-    )
-    return plot_theme(fig, 430)
-
-
 def comparison_table(calibration: dict[str, float], base_result: dict[str, float], sim_result: dict[str, float]) -> pd.DataFrame:
     return curves.comparison_rows(calibration, base_result, sim_result)
 
 
-def active_shock_items(shock: Shock, sensitivity_scale: float) -> list[str]:
+def active_shock_items(shock: Shock) -> list[str]:
     specs = [
         ("government_spending_pct", "Gasto publico (G)", "%", "Aumenta demanda interna y mueve IS a la derecha."),
         ("tax_pct_of_gdp", "Impuestos (T)", "% PIB", "Si sube, reduce ingreso disponible y mueve IS a la izquierda."),
@@ -348,10 +245,6 @@ def active_shock_items(shock: Shock, sensitivity_scale: float) -> list[str]:
         value = curves.shock_value(shock, field)
         if abs(value) > 1e-9:
             items.append(f"**{label}:** {fmt_delta(value, 1)} {unit}. {note}")
-    if abs(sensitivity_scale - 1.0) > 1e-9:
-        items.append(
-            f"**Sensibilidad cambiaria:** {fmt(sensitivity_scale, 2)}x. Amplifica la reaccion de la TRM (solo modo imperfecta)."
-        )
     return items
 
 
@@ -359,17 +252,17 @@ def mechanism_items(base_result: dict[str, float], sim_result: dict[str, float])
     trm_delta = sim_result["trm_cop_per_usd"] - base_result["trm_cop_per_usd"]
     y_delta = sim_result["gdp_real_cop_billion"] - base_result["gdp_real_cop_billion"]
     rate_delta = sim_result["policy_rate_pct"] - base_result["policy_rate_pct"]
-    bp_delta = sim_result["balance_of_payments_gap_usd_m"] - base_result["balance_of_payments_gap_usd_m"]
+    ca_delta = sim_result["current_account_usd_m"] - base_result["current_account_usd_m"]
 
     trm_text = "depreciacion" if trm_delta > 0 else "apreciacion" if trm_delta < 0 else "sin cambio relevante"
     y_text = "mayor actividad" if y_delta > 0 else "menor actividad" if y_delta < 0 else "producto casi igual"
     rate_text = "sube" if rate_delta > 0 else "baja" if rate_delta < 0 else "no cambia"
-    bp_text = "mejora la presion externa" if bp_delta > 0 else "deteriora la presion externa" if bp_delta < 0 else "mantiene el balance externo"
+    ca_text = "mejora cuenta corriente" if ca_delta > 0 else "deteriora cuenta corriente" if ca_delta < 0 else "cuenta corriente sin cambio"
     return [
-        f"La TRM cambia {fmt_delta(trm_delta, 2, ' COP')} ({fmt_delta(sim_result['trm_change_pct'], 2, '%')}): lectura central = **{trm_text}**.",
-        f"El producto se mueve {fmt_delta(y_delta, 1, ' COP bn')}: el escenario implica **{y_text}** frente al nivel base.",
-        f"La tasa domestica {rate_text} {fmt_delta(rate_delta, 2, ' p.p.')}; esto afecta inversion, demanda de dinero y flujos de capital.",
-        f"El balance de pagos cambia {fmt_delta(bp_delta, 1, ' USD m')}: **{bp_text}** en el bloque externo.",
+        f"TRM: {fmt_delta(trm_delta, 2, ' COP')} ({fmt_delta(sim_result['trm_change_pct'], 2, '%')}) -> **{trm_text}**.",
+        f"PIB real: {fmt_delta(y_delta, 1, ' COP bn')} -> **{y_text}** frente al base.",
+        f"Tasa domestica {rate_text} {fmt_delta(rate_delta, 2, ' p.p.')}.",
+        f"Cuenta corriente: {fmt_delta(ca_delta, 1, ' USD m')} -> **{ca_text}**.",
     ]
 
 
@@ -381,7 +274,7 @@ def bp_direction(value: float, neutral_band: float = 1e-6) -> str:
     return "neutral"
 
 
-def scenario_guardrails(base_result: dict[str, float], sim_result: dict[str, float], sensitivity_scale: float) -> list[str]:
+def scenario_guardrails(base_result: dict[str, float], sim_result: dict[str, float]) -> list[str]:
     warnings = []
     if abs(sim_result["trm_change_pct"]) > 25:
         warnings.append(
@@ -390,10 +283,6 @@ def scenario_guardrails(base_result: dict[str, float], sim_result: dict[str, flo
     if abs(sim_result["output_gap_pct"]) > 8:
         warnings.append(
             f"**Brecha grande:** el producto cambia {fmt_delta(sim_result['output_gap_pct'], 1, '%')} frente al nivel base; puede estar fuera del rango donde una aproximacion lineal es confiable."
-        )
-    if sensitivity_scale != 1.0:
-        warnings.append(
-            f"**Sensibilidad cambiaria ajustada:** {fmt(sensitivity_scale, 2)}x es un parametro exploratorio, no un dato observado."
         )
     return warnings
 
@@ -492,14 +381,6 @@ with left:
             horizontal=True,
             help="Multiplica el escenario preconfigurado. Estres es para sensibilidad, no pronostico.",
         )
-        exchange_sensitivity_scale = control_slider(
-            "3. Sensibilidad de TRM",
-            "Parametro exploratorio: 1x es calibracion central; mas alto hace mas visible la reaccion cambiaria.",
-            0.5,
-            3.0,
-            1.0,
-            0.05,
-        )
         shock = scale_shock(selected, intensity_options[intensity_label])
         st.info(
             "**Modo guiado:** la app aplica el escenario elegido con la intensidad seleccionada. "
@@ -553,12 +434,6 @@ with left:
                 -5.0, 5.0, selected.nx_autonomous_pct, 0.25,
             )
 
-        exchange_sensitivity_scale = control_slider(
-            "Sensibilidad cambiaria (solo imperfecta)",
-            "Multiplica la respuesta de TRM al gap de UIP y al residual de balanza de pagos. Sin efecto en perfecta.",
-            0.25, 3.0, 1.0, 0.05,
-        )
-
         shock = Shock(
             government_spending_pct=government_spending_pct,
             tax_pct_of_gdp=tax_pct_of_gdp,
@@ -570,9 +445,8 @@ with left:
             nx_autonomous_pct=nx_autonomous_pct,
         )
 
-scenario_params = curves.scaled_exchange_params(params, exchange_sensitivity_scale)
 base = simulate(calibration, Shock(), params, mobility=mobility)
-sim = simulate(calibration, shock, scenario_params, mobility=mobility)
+sim = simulate(calibration, shock, params, mobility=mobility)
 
 
 with right:
@@ -581,9 +455,9 @@ with right:
         "**Uso correcto:** esta herramienta no pronostica la TRM. Es una simulacion comparativa "
         "calibrada con un snapshot fijo (cuentas nacionales 2025Q4) mas series en vivo de TRM, Fed funds y Brent."
     )
-    render_story("Choques activos", active_shock_items(shock, exchange_sensitivity_scale))
+    render_story("Choques activos", active_shock_items(shock))
     render_story("Mecanismo economico del escenario", mechanism_items(base, sim))
-    guardrails = scenario_guardrails(base, sim, exchange_sensitivity_scale)
+    guardrails = scenario_guardrails(base, sim)
     if guardrails:
         render_story("Alertas de interpretacion", guardrails, style="warning")
 
@@ -657,38 +531,29 @@ with right:
     )
 
     with tab_summary:
-        st.subheader("Mapa de impactos")
-        st.caption("Cada barra es el cambio frente al escenario base, expresado en unidades comparables o normalizadas.")
+        st.subheader("Cambios frente al escenario base")
+        st.caption("Cada barra es el cambio % o p.p. frente al base. Verde = apreciacion / mejora externa; rojo = depreciacion / deterioro.")
         st.plotly_chart(impact_figure(calibration, base, sim), width="stretch")
 
-        st.subheader("Que explica el cambio de la TRM")
-        st.caption("Descomposicion aproximada por factor. Rojo presiona depreciacion; verde presiona apreciacion.")
-        st.plotly_chart(trm_contribution_figure(calibration, shock, params, scenario_params, base, sim), width="stretch")
-
     with tab_curves:
-        st.subheader("Equilibrio IS-LM-BP")
+        st.subheader("Equilibrio IS*-LM* (Mankiw cap. 13)")
         st.caption(
-            "IS (azul) = demanda agregada. LM (verde-azulado) = mercado monetario. BP=0 (ambar) = equilibrio externo. "
-            "Linea solida = base; linea punteada = escenario."
+            "Plano (Y, TRM). **IS\\*** (azul, pendiente positiva): mas TRM = peso depreciado = mas NX = mas Y "
+            "demandado por el gasto. **LM\\*** (verde, vertical): el Y consistente con el mercado monetario para la "
+            "tasa local r y la oferta monetaria M. Linea solida = base; linea punteada = escenario. La flecha roja "
+            "muestra el movimiento del equilibrio."
         )
-        st.plotly_chart(equilibrium_figure(calibration, shock, params, scenario_params, base, sim, mobility=mobility), width="stretch")
-        with st.expander("Como leer esta grafica"):
-            st.write(
-                "Si la IS se mueve a la derecha, hay mas demanda para cada tasa. "
-                "Si la LM se mueve hacia abajo, hay mas liquidez o menor tasa compatible. "
-                "Si BP=0 se desplaza, cambia la tasa necesaria para equilibrar cuenta corriente y cuenta financiera. "
-                "El punto rojo es el equilibrio que resulta de los sliders."
+        st.plotly_chart(equilibrium_figure_mankiw(calibration, shock, params, base, sim), width="stretch")
+        with st.expander("Como leer esta grafica (Mankiw cap. 13)"):
+            st.markdown(
+                "- **Politica fiscal expansiva (+G):** IS\\* sube (para cada Y, requiere menor TRM para que NX baje "
+                "y el gasto cuadre). LM\\* no se mueve. Equilibrio: Y constante, TRM cae (peso aprecia).\n"
+                "- **Politica monetaria expansiva (+M):** LM\\* se mueve a la derecha (Y_LM mayor para r dada). "
+                "IS\\* sin cambio. Equilibrio: Y sube, TRM sube (peso depreciado).\n"
+                "- **Choque a r externa (Fed/riesgo):** sube r local via UIP. IS\\* baja (la I cae) y LM\\* se "
+                "mueve (Y consistente con la nueva r). Equilibrio: Y y TRM ajustan en la direccion del choque.\n"
+                "- **Choque real (Brent, NX_aut):** desplaza IS\\* directamente. LM\\* sin cambio."
             )
-
-        st.subheader("TRM y presion externa")
-        st.caption(
-            "Eje horizontal: TRM (a la derecha = depreciacion). Eje vertical: balance externo (sobre cero = presion de apreciacion). "
-            "La curva punteada muestra como el choque mueve la presion externa."
-        )
-        st.plotly_chart(
-            exchange_adjustment_figure(calibration, shock, params, scenario_params, base, sim),
-            width="stretch",
-        )
 
     with tab_compare:
         st.subheader("Tabla legible de base vs simulado")
