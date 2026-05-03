@@ -780,10 +780,14 @@ with right:
         c1, c2, c3 = st.columns(3)
         c1.metric("Y simulado (LHS)", f"{check['lhs']:,.1f}")
         c2.metric("C+I+G+NX (RHS)", f"{check['rhs_no_residuo']:,.1f}")
-        c3.metric("Residuo de cierre", f"{check['residuo']:,.1f}", f"{check['drift']:+.4f} drift vs base")
+        c3.metric("Discrepancia estadistica", f"{check['residuo']:,.1f}", f"{check['drift']:+.4f} vs base")
         st.caption(
-            "El residuo deberia ser identico al residuo del caso base (drift ≈ 0). Drift no nulo indica que el "
-            "solver produjo un punto que se aparta de la identidad — bug numerico, no comportamiento esperado."
+            "**Discrepancia estadistica DANE:** el residuo no es exactamente cero porque las cuentas nacionales "
+            f"publicadas tienen un sesgo de cierre de {check['residuo_base']:,.1f} COP bn (≈ "
+            f"{(check['residuo_base']/check['lhs']*100):.3f}% del PIB). "
+            "Es comun en cualquier sistema de cuentas nacionales y no se debe al modelo. **Lo que importa es la "
+            "linea inferior del tercer recuadro:** indica cuanto se mueve esa discrepancia entre el caso base y el "
+            "caso impactado. Si la cifra es cercana a cero, el modelo preserva la identidad correctamente."
         )
 
     with tab_curves:
@@ -1004,6 +1008,13 @@ with right:
             if panel.empty:
                 st.warning("No se obtuvo panel historico. Posiblemente FRED esta inalcanzable desde el host. Intenta de nuevo en unos minutos.")
             else:
+                missing_optional = [c for c in ("fed_funds_pct", "brent_usd") if c not in panel.columns]
+                if missing_optional:
+                    st.warning(
+                        f"Panel parcial: faltan series **{', '.join(missing_optional)}** (probable: FRED inalcanzable "
+                        "desde el servidor). El backtest sigue corriendo, pero los choques exogenos correspondientes "
+                        "se tratan como cero. El RMSE refleja entonces la varianza inexplicada de la TRM."
+                    )
                 bt_df = bt.run_backtest(panel, calibration, parameters=params, mobility=mobility)
                 m = bt.metrics(bt_df)
 

@@ -56,6 +56,10 @@ def build_exogenous_panel(
     return panel.dropna().sort_values("quarter").reset_index(drop=True)
 
 
+REQUIRED_PANEL_COLUMNS = ("quarter", "trm")
+OPTIONAL_PANEL_COLUMNS = ("fed_funds_pct", "brent_usd")
+
+
 def run_backtest(
     panel: pd.DataFrame,
     calibration: Mapping[str, float],
@@ -66,18 +70,36 @@ def run_backtest(
 
     Asume que los exogenos del modelo son la diferencia entre t y t-1.
     Devuelve DataFrame con cambios observados y predichos por periodo.
+
+    Tolera columnas opcionales ausentes (si FRED no esta disponible, el panel
+    solo tiene TRM y los choques exogenos se asumen 0). En ese caso el modelo
+    siempre predice 0% y el RMSE refleja la varianza no explicada de la TRM.
     """
     if panel.empty or len(panel) < 2:
         return pd.DataFrame()
+
+    missing_required = [c for c in REQUIRED_PANEL_COLUMNS if c not in panel.columns]
+    if missing_required:
+        raise ValueError(f"Panel incompleto, faltan columnas requeridas: {missing_required}.")
+
+    has_fed = "fed_funds_pct" in panel.columns
+    has_brent = "brent_usd" in panel.columns
 
     rows = []
     for i in range(1, len(panel)):
         prev = panel.iloc[i - 1]
         cur = panel.iloc[i]
 
-        delta_fed_bp = (float(cur["fed_funds_pct"]) - float(prev["fed_funds_pct"])) * 100.0
-        prev_brent = float(prev["brent_usd"])
-        delta_oil_pct = ((float(cur["brent_usd"]) - prev_brent) / prev_brent) * 100.0 if prev_brent != 0 else 0.0
+        if has_fed and pd.notna(prev["fed_funds_pct"]) and pd.notna(cur["fed_funds_pct"]):
+            delta_fed_bp = (float(cur["fed_funds_pct"]) - float(prev["fed_funds_pct"])) * 100.0
+        else:
+            delta_fed_bp = 0.0
+
+        if has_brent and pd.notna(prev["brent_usd"]) and pd.notna(cur["brent_usd"]):
+            prev_brent = float(prev["brent_usd"])
+            delta_oil_pct = ((float(cur["brent_usd"]) - prev_brent) / prev_brent) * 100.0 if prev_brent != 0 else 0.0
+        else:
+            delta_oil_pct = 0.0
 
         shock = Shock(foreign_rate_bp=delta_fed_bp, oil_price_pct=delta_oil_pct)
         result = simulate(calibration, shock, parameters, mobility=mobility)
