@@ -12,8 +12,26 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from mf_model import SCENARIOS, SCENARIO_MECHANISMS, Shock, simulate  # noqa: E402
+from mf_model import MOBILITY_OPTIONS, SCENARIOS, SCENARIO_MECHANISMS, Shock, simulate  # noqa: E402
 import mf_curves as curves  # noqa: E402
+
+
+MOBILITY_LABELS = {
+    "perfecta": "Movilidad perfecta (textbook Mankiw)",
+    "imperfecta": "Movilidad imperfecta (calibracion Colombia)",
+}
+MOBILITY_DESCRIPTIONS = {
+    "perfecta": (
+        "Caso canonico: la tasa domestica queda anclada por la paridad de intereses. "
+        "La politica fiscal NO mueve el producto (ΔY = 0); todo el ajuste pasa por la TRM. "
+        "La politica monetaria SI es efectiva."
+    ),
+    "imperfecta": (
+        "Calibracion empirica para Colombia: capitales con movilidad finita y prima de riesgo. "
+        "La politica fiscal SI mueve el producto y la TRM se ajusta parcialmente. "
+        "Cercano a la realidad, pero no es el resultado canonico de Mundell-Fleming."
+    ),
+}
 
 
 st.set_page_config(page_title="Mundell-Fleming Colombia", layout="wide")
@@ -290,8 +308,9 @@ def equilibrium_figure(
     scenario_params: dict[str, float],
     base_result: dict[str, float],
     sim_result: dict[str, float],
+    mobility: str = "perfecta",
 ) -> go.Figure:
-    data = curves.curve_data(calibration, shock, base_params, scenario_params, base_result, sim_result)
+    data = curves.curve_data(calibration, shock, base_params, scenario_params, base_result, sim_result, mobility=mobility)
     gaps = data["gaps"]
     fig = go.Figure()
     styles = [
@@ -632,6 +651,14 @@ left, right = st.columns([0.31, 0.69], gap="large")
 
 with left:
     st.subheader("Panel de choques")
+    mobility = st.radio(
+        "Movilidad de capitales",
+        list(MOBILITY_OPTIONS),
+        format_func=lambda key: MOBILITY_LABELS[key],
+        horizontal=False,
+        help="Perfecta = caso textbook (Mankiw cap. 13). Imperfecta = calibracion empirica para Colombia.",
+    )
+    st.caption(MOBILITY_DESCRIPTIONS[mobility])
     st.markdown(
         "<div class='mini-label'>Usa el modo guiado para explorar rapido. Cambia a experto solo si quieres tocar cada supuesto.</div>",
         unsafe_allow_html=True,
@@ -860,8 +887,8 @@ with left:
         )
 
 scenario_params = curves.scaled_exchange_params(params, exchange_sensitivity_scale)
-base = simulate(calibration, Shock(), params)
-sim = simulate(calibration, shock, scenario_params)
+base = simulate(calibration, Shock(), params, mobility=mobility)
+sim = simulate(calibration, shock, scenario_params, mobility=mobility)
 
 
 with right:
@@ -985,7 +1012,7 @@ with right:
             """,
             unsafe_allow_html=True,
         )
-        st.plotly_chart(equilibrium_figure(calibration, shock, params, scenario_params, base, sim), width="stretch")
+        st.plotly_chart(equilibrium_figure(calibration, shock, params, scenario_params, base, sim, mobility=mobility), width="stretch")
         with st.expander("Como leer esta grafica"):
             st.write(
                 "Si la IS se mueve a la derecha, hay mas demanda para cada tasa. "

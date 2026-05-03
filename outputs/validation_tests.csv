@@ -1,7 +1,16 @@
-test,metric,value,condition,passed
-Subida prima de riesgo deprecia,trm_cop_per_usd,3659.1447927454246,> 3560.6200,True
-Subida tasa externa deprecia,trm_cop_per_usd,3659.1447927454246,> 3560.6200,True
-Subida tasa domestica aprecia,trm_cop_per_usd,3463.5471796746574,< 3560.6200,True
-Caida petroleo deprecia,trm_cop_per_usd,3597.368761909211,> 3560.6200,True
-Mejora exportaciones aprecia,trm_cop_per_usd,3527.408899835757,< 3560.6200,True
-Expansion monetaria deprecia,trm_cop_per_usd,3638.2782562602733,> 3560.6200,True
+test,metric,value,condition,passed,mobility
+Subida prima de riesgo deprecia,trm_cop_per_usd,5467.253562182879,> 3560.6200,True,perfecta
+Subida tasa externa deprecia,trm_cop_per_usd,5467.253562182879,> 3560.6200,True,perfecta
+Caida petroleo deprecia,trm_cop_per_usd,3610.5369377328298,> 3560.6200,True,perfecta
+Mejora exportaciones aprecia,trm_cop_per_usd,3144.645518893063,< 3560.6200,True,perfecta
+Expansion monetaria deprecia,trm_cop_per_usd,5040.9993970011155,> 3560.6200,True,perfecta
+Expansion fiscal: Y constante,gdp_real_cop_billion,271434.7141091751,== 271434.7141,True,perfecta
+Expansion fiscal aprecia,trm_cop_per_usd,3251.6865612635092,< 3560.6200,True,perfecta
+Expansion monetaria sube Y,gdp_real_cop_billion,293149.4912379091,> 271434.7141,True,perfecta
+Subida prima de riesgo deprecia,trm_cop_per_usd,3660.4079072543072,> 3560.6200,True,imperfecta
+Subida tasa externa deprecia,trm_cop_per_usd,3660.4079072543072,> 3560.6200,True,imperfecta
+Caida petroleo deprecia,trm_cop_per_usd,3597.5437180983326,> 3560.6200,True,imperfecta
+Mejora exportaciones aprecia,trm_cop_per_usd,3527.551083024031,< 3560.6200,True,imperfecta
+Expansion monetaria deprecia,trm_cop_per_usd,3639.0618350549234,> 3560.6200,True,imperfecta
+Subida tasa domestica aprecia,trm_cop_per_usd,3464.7563832559244,< 3560.6200,True,imperfecta
+Expansion fiscal sube Y (movilidad imperfecta),gdp_real_cop_billion,275719.19802058616,> 271434.7141,True,imperfecta

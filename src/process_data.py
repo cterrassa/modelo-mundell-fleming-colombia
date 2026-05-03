@@ -217,8 +217,16 @@ def build_calibration() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     source_matrix().to_csv(OUT / "source_matrix.csv", index=False)
     data_dictionary().to_csv(OUT / "data_dictionary.csv", index=False)
 
-    scenario_table(calibration).to_csv(OUTPUTS / "scenario_results.csv", index=False)
-    validate_signs(calibration).to_csv(OUTPUTS / "validation_tests.csv", index=False)
+    scenarios_both = pd.concat(
+        [scenario_table(calibration, mobility=m) for m in ("perfecta", "imperfecta")],
+        ignore_index=True,
+    )
+    scenarios_both.to_csv(OUTPUTS / "scenario_results.csv", index=False)
+    tests_both = pd.concat(
+        [validate_signs(calibration, mobility=m) for m in ("perfecta", "imperfecta")],
+        ignore_index=True,
+    )
+    tests_both.to_csv(OUTPUTS / "validation_tests.csv", index=False)
     scenario_docs().to_csv(OUTPUTS / "scenario_mechanisms.csv", index=False)
 
     return quarterly, calib_long, params

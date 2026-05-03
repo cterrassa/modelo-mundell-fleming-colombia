@@ -175,19 +175,34 @@ def curve_data(
     scenario_params: Mapping[str, float],
     base_result: Mapping[str, float],
     sim_result: Mapping[str, float],
+    mobility: str = "perfecta",
 ) -> dict[str, object]:
+    """Build IS, LM and BP=0 curve data on the (output gap, rate) plane.
+
+    Under ``mobility="perfecta"`` the BP=0 curve is horizontal at the UIP rate
+    (canonical MF). Under ``mobility="imperfecta"`` it is upward-sloping,
+    reflecting finite capital mobility.
+    """
     gaps = gap_grid(base_result, sim_result)
+    bp_base_horizontal = float(base_result["policy_rate_pct"])
+    bp_scenario_horizontal = float(sim_result["policy_rate_pct"])
+    if mobility == "perfecta":
+        bp_base = [bp_base_horizontal for _ in gaps]
+        bp_scenario = [bp_scenario_horizontal for _ in gaps]
+    else:
+        bp_base = [bp_rate_for_gap(calibration, Shock(), base_params, base_result, g) for g in gaps]
+        bp_scenario = [bp_rate_for_gap(calibration, shock, scenario_params, sim_result, g) for g in gaps]
     return {
         "gaps": gaps,
         "base": {
             "IS": [is_rate_for_gap(calibration, Shock(), base_params, base_result, g) for g in gaps],
             "LM": [lm_rate_for_gap(calibration, Shock(), base_params, g) for g in gaps],
-            "BP=0": [bp_rate_for_gap(calibration, Shock(), base_params, base_result, g) for g in gaps],
+            "BP=0": bp_base,
         },
         "scenario": {
             "IS": [is_rate_for_gap(calibration, shock, scenario_params, sim_result, g) for g in gaps],
             "LM": [lm_rate_for_gap(calibration, shock, scenario_params, g) for g in gaps],
-            "BP=0": [bp_rate_for_gap(calibration, shock, scenario_params, sim_result, g) for g in gaps],
+            "BP=0": bp_scenario,
         },
     }
 
