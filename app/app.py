@@ -22,17 +22,18 @@ from long_run import simulate_long_run  # noqa: E402
 
 
 MOBILITY_LABELS = {
-    "perfecta": "Movilidad perfecta (textbook Mankiw)",
+    "perfecta": "Movilidad perfecta de capitales",
     "imperfecta": "Movilidad imperfecta (calibracion Colombia)",
 }
 MOBILITY_DESCRIPTIONS = {
     "perfecta": (
-        "Caso canonico Mankiw cap. 13: r anclada por UIP, fiscal no mueve Y (ΔY=0), "
-        "monetaria si mueve Y."
+        "Caso canonico: la tasa local queda anclada por la paridad descubierta de "
+        "intereses. La politica fiscal NO mueve el producto (ΔY=0), todo el ajuste "
+        "pasa por el tipo de cambio. La politica monetaria SI es efectiva."
     ),
     "imperfecta": (
-        "Calibracion empirica con movilidad finita: r endogena, fiscal si mueve Y. "
-        "Cercano a Colombia, no canonico Mankiw."
+        "Calibracion empirica con movilidad finita: la tasa domestica es endogena "
+        "y la politica fiscal SI mueve el producto. Cercano a la realidad colombiana."
     ),
 }
 
@@ -123,14 +124,14 @@ def plot_theme(fig: go.Figure, height: int) -> go.Figure:
     return fig
 
 
-def equilibrium_figure_mankiw(
+def equilibrium_figure_main(
     calibration: dict[str, float],
     shock: Shock,
     params: dict[str, float],
     base_result: dict[str, float],
     sim_result: dict[str, float],
 ) -> go.Figure:
-    """Diagrama IS*-LM* en plano (Y, TRM) — Mankiw cap. 13.
+    """Diagrama IS*-LM* en plano (Y, TRM) para economia abierta pequena.
 
     IS* (azul): pendiente positiva (TRM ↑ = peso depreciado → NX ↑ → Y ↑).
     LM* (verde): vertical en el Y consistente con el mercado monetario dada la
@@ -351,7 +352,7 @@ with left:
         list(MOBILITY_OPTIONS),
         format_func=lambda key: MOBILITY_LABELS[key],
         horizontal=False,
-        help="Perfecta = caso textbook (Mankiw cap. 13). Imperfecta = calibracion empirica para Colombia.",
+        help="Perfecta = caso canonico (la tasa local se ancla a la externa). Imperfecta = calibracion empirica para Colombia.",
     )
     st.caption(MOBILITY_DESCRIPTIONS[mobility])
     st.caption("Usa el modo guiado para explorar rapido. Cambia a experto solo si quieres tocar cada supuesto.")
@@ -389,7 +390,7 @@ with left:
             "Para modificar una variable especifica, cambia a modo experto."
         )
     else:
-        st.caption("Modo experto: 10 palancas alineadas al curso (Mankiw cap. 13 + Vallejo UniAndes) y datos colombianos.")
+        st.caption("Modo experto: 10 palancas que cubren todos los choques estandar del modelo y los relevantes para el caso colombiano.")
         with st.expander("Choques autonomos a la IS (a, h)", expanded=False):
             consumption_autonomous_pct = control_slider(
                 "Consumo autonomo a (%)",
@@ -552,15 +553,15 @@ with right:
         st.plotly_chart(impact_figure(calibration, base, sim), width="stretch")
 
     with tab_curves:
-        st.subheader("Equilibrio IS*-LM* (Mankiw cap. 13)")
+        st.subheader("Equilibrio IS*-LM* en el plano (Y, TRM)")
         st.caption(
-            "Plano (Y, TRM). **IS\\*** (azul, pendiente positiva): mas TRM = peso depreciado = mas NX = mas Y "
-            "demandado por el gasto. **LM\\*** (verde, vertical): el Y consistente con el mercado monetario para la "
-            "tasa local r y la oferta monetaria M. Linea solida = base; linea punteada = escenario. La flecha roja "
-            "muestra el movimiento del equilibrio."
+            "**IS\\*** (azul, pendiente positiva): mas TRM = peso depreciado = mas NX = mas Y demandado por el gasto. "
+            "**LM\\*** (verde, vertical): el Y consistente con el mercado monetario para la tasa local r y la oferta "
+            "monetaria M. Linea solida = base; linea punteada = escenario. La flecha roja muestra el movimiento del "
+            "equilibrio."
         )
-        st.plotly_chart(equilibrium_figure_mankiw(calibration, shock, params, base, sim), width="stretch")
-        with st.expander("Como leer esta grafica (Mankiw cap. 13)"):
+        st.plotly_chart(equilibrium_figure_main(calibration, shock, params, base, sim), width="stretch")
+        with st.expander("Como leer esta grafica"):
             st.markdown(
                 "- **Politica fiscal expansiva (+G):** IS\\* sube (para cada Y, requiere menor TRM para que NX baje "
                 "y el gasto cuadre). LM\\* no se mueve. Equilibrio: Y constante, TRM cae (peso aprecia).\n"
@@ -588,13 +589,14 @@ with right:
         st.dataframe(scenario_view, width="stretch", hide_index=True)
 
     with tab_horizon:
-        st.subheader("Corto plazo (este modelo) vs Largo plazo (Mankiw cap. 6)")
+        st.subheader("Corto plazo (este modelo) vs Largo plazo")
         st.markdown(
             "**Punto de partida.** Este simulador implementa el **modelo Mundell-Fleming de "
-            "corto plazo** (Mankiw cap. 13). Asume **precios fijos**, por lo que el producto Y "
-            "puede desviarse de su nivel natural Y_n ante choques de politica. Las curvas IS-LM-BP "
-            "que ves operan en este marco. La movilidad perfecta de capitales es el caso textbook "
-            "puro; la imperfecta agrega una pendiente positiva a la BP."
+            "corto plazo**. Asume **precios fijos**, por lo que el producto Y puede desviarse de "
+            "su nivel natural Y_n ante choques de politica. Las curvas IS\\*-LM\\* que ves operan en "
+            "este marco. La movilidad perfecta de capitales es el caso canonico puro; la "
+            "imperfecta agrega tasa local endogena y mecanismo de ajuste por presion de balanza "
+            "de pagos."
         )
         st.markdown(
             "**Largo plazo (referencia teorica).** En el LP los precios ajustan: Y vuelve a Y_n "
@@ -615,7 +617,7 @@ with right:
         st.markdown(f"**Comparacion para el choque activo (modo {MOBILITY_LABELS[mobility]})**")
         st.caption(
             "El SR mostrado abajo respeta el modo de movilidad seleccionado en el panel izquierdo. "
-            "El LR siempre asume movilidad perfecta porque es el referente teorico de Mankiw cap. 6."
+            "El LR siempre asume movilidad perfecta como referente teorico estandar."
         )
 
         sr_result = sim

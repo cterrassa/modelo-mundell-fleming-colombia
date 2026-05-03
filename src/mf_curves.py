@@ -1,7 +1,7 @@
 """Helpers para visualizar el equilibrio Mundell-Fleming en plano (Y, TRM).
 
-Sigue Mankiw cap. 13 (modelo MF para economia abierta pequena con movilidad
-de capitales). En este marco:
+Modelo MF para economia abierta pequena con movilidad de capitales. En este
+marco:
 
 - La tasa local queda anclada por UIP: ``r = r* + prima de riesgo``.
 - La curva ``IS*`` relaciona Y con TRM via la respuesta de NX: para cada

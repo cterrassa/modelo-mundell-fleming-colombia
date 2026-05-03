@@ -3,7 +3,7 @@
 ## Que hace y que no hace este simulador
 
 Es una herramienta academica de estatica comparativa que implementa el
-**modelo Mundell-Fleming de Mankiw cap. 13** aplicado a Colombia. Tres usos
+**modelo Mundell-Fleming de economia abierta pequena** aplicado a Colombia. Tres usos
 validos:
 
 - Reproducir resultados textbook de Mundell-Fleming flexible (movilidad
@@ -39,10 +39,10 @@ M = M0 (1 + eta_import_y * dY/Y0 - eta_import_q * q)
 Donde `q = TRM/TRM0 - 1` es la depreciacion del peso, `c` la propension
 marginal a consumir y `b` la sensibilidad de la inversion a la tasa real.
 
-### Diagrama IS\*-LM\* en plano (Y, TRM) — Mankiw cap. 13
+### Diagrama IS\*-LM\* en plano (Y, TRM) — economia abierta pequena
 
 El simulador grafica el equilibrio en el plano `(Y, TRM)`, que es el plano
-canonico de Mankiw para el modelo MF de economia abierta pequena con
+canonico para el modelo MF de economia abierta pequena con
 movilidad de capitales:
 
 - **Curva IS\* (azul, pendiente positiva).** Para cada nivel de Y, despeja
@@ -60,7 +60,7 @@ movilidad de capitales:
 - **Equilibrio:** interseccion. La flecha roja marca el movimiento del
   equilibrio entre el escenario base y el escenario simulado.
 
-### Movilidad perfecta (Mankiw cap. 13 puro)
+### Movilidad perfecta (economia abierta pequena puro)
 
 La curva BP es horizontal (no se grafica): la tasa local queda anclada por
 paridad descubierta de intereses ajustada por riesgo:
@@ -208,7 +208,7 @@ Estos son limites teoricos del modelo, no bugs.
 El modelo Mundell-Fleming es de **corto plazo** por construccion: precios
 fijos, Y puede desviarse de Y_n. Para contextualizar pedagogicamente, el
 modulo `src/long_run.py` implementa el equilibrio de **largo plazo** del
-mismo marco abierto pequeno (Mankiw cap. 6, no cap. 13):
+mismo marco abierto pequeno (marco de largo plazo, no de corto plazo):
 
 ```text
 Y = Y_n          (exogeno, definido por capital y trabajo)
@@ -231,7 +231,7 @@ Resultados clave que cambian entre SR y LR:
 
 El tab "Corto vs largo plazo" muestra la comparacion lado a lado para el
 choque activo. El SR respeta el modo de movilidad seleccionado; el LR siempre
-asume movilidad perfecta porque es el referente teorico de Mankiw cap. 6.
+asume movilidad perfecta porque es el referente teorico de economia abierta pequena de largo plazo.
 
 ## Limitaciones generales
 

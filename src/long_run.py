@@ -1,11 +1,11 @@
-"""Equilibrio de largo plazo de la economia abierta pequena (Mankiw cap. 6).
+"""Equilibrio de largo plazo de la economia abierta pequena.
 
 Este modulo NO es Mundell-Fleming. Es el complemento teorico de largo plazo:
 en el LP los precios son flexibles y el producto vuelve a su nivel natural
 Y_n. Sirve para contrastar pedagogicamente con los resultados de corto plazo
-del modelo MF (cap. 13) implementado en mf_model.simulate().
+del modelo MF implementado en mf_model.simulate().
 
-Punto de partida (Mankiw cap. 6, economia abierta pequena, LP):
+Punto de partida (economia abierta pequena, LP):
 
 ```text
 Y = Y_n          (exogeno, dado por capital y trabajo)
@@ -47,7 +47,7 @@ def simulate_long_run(
     shock: Shock | Mapping[str, float] | None = None,
     parameters: Mapping[str, float] | None = None,
 ) -> dict[str, float]:
-    """Equilibrio de largo plazo (Mankiw cap. 6) bajo movilidad perfecta.
+    """Equilibrio de largo plazo bajo movilidad perfecta.
 
     Y queda fijo en Y_n (la calibracion base). La tasa local queda anclada
     por UIP. El tipo de cambio absorbe el desbalance del bloque ahorro-

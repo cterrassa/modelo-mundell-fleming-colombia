@@ -11,10 +11,10 @@ import pandas as pd
 class Shock:
     """Shocks del modelo Mundell-Fleming para Colombia.
 
-    Diez dimensiones, todas con respaldo en el curso UniAndes (Vallejo) y/o
+    Diez dimensiones que cubren los choques estandar del modelo MF y los
     relevantes para el caso colombiano.
 
-    Choques autonomos a la IS (notacion del curso entre parentesis):
+    Choques autonomos a la IS:
     - ``consumption_autonomous_pct`` (a): choque al consumo autonomo C0, en %.
     - ``investment_autonomous_pct`` (h): choque a la inversion autonoma I0, en %.
     - ``nx_autonomous_pct`` (z, bm consolidados): choque autonomo a NX como
@@ -26,8 +26,8 @@ class Shock:
     - ``tax_pct_of_gdp`` (T): choque a impuestos como % del PIB base.
     - ``money_supply_pct`` (M): choque a M3 como % de la base monetaria.
     - ``domestic_policy_rate_bp``: choque a la tasa Banrep en puntos basicos.
-      Bajo movilidad perfecta queda anulado por la paridad de intereses (no
-      esta en el modelo MF puro del curso, util para el caso imperfecta).
+      Bajo movilidad perfecta queda anulado por la paridad de intereses; util
+      para el caso imperfecta.
 
     Externas:
     - ``foreign_rate_bp`` (r*): choque a la tasa externa Fed funds, en pbs.
@@ -281,7 +281,7 @@ def simulate(
     """Simulacion estatica del modelo Mundell-Fleming flexible para Colombia.
 
     Dos modos:
-    - ``mobility="perfecta"`` (default): caso textbook (Mankiw cap. 13). La tasa
+    - ``mobility="perfecta"`` (default): caso canonico. La tasa
       queda anclada por UIP, la politica fiscal NO mueve el producto (todo el
       ajuste pasa por la TRM), la politica monetaria SI es efectiva. Solucion
       en forma cerrada. ``domestic_policy_rate_bp`` no tiene efecto (el banco

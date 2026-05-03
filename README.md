@@ -1,19 +1,18 @@
 # Modelo Mundell-Fleming Colombia
 
 Simulador interactivo del modelo Mundell-Fleming aplicado al caso colombiano,
-desplegado como app Streamlit. Material academico para la Maestria en Economia
-Aplicada de UniAndes (curso de Macroeconomia, presentaciones 34-39).
+desplegado como app Streamlit.
 
 App publica: https://modelo-mundell-fleming-colombia.onrender.com/
 
 ## Que ofrece
 
 - **Modo dual de movilidad de capitales:**
-  - **Perfecta** (canonico Mankiw cap. 13): tasa anclada por UIP, politica fiscal
+  - **Perfecta** (caso canonico): tasa anclada por UIP, politica fiscal
     no mueve el producto, politica monetaria efectiva. Resolucion en forma cerrada.
   - **Imperfecta** (calibracion empirica para Colombia): BP con pendiente positiva,
     ajuste de TRM via residual de balanza de pagos, regla de Taylor para Banrep.
-- **8 sliders de choques** alineados a Mankiw + Banrep: G, T, M, tasa Banrep, tasa
+- **10 sliders de choques** que cubren los choques estandar del modelo y los relevantes para Colombia: a, h, G, T, M, tasa Banrep, tasa
   Fed, prima de riesgo Colombia, Brent, NX autonomo.
 - **Datos en vivo** (TRM Datos Abiertos, Fed funds y Brent FRED) con cache 1 h y
   fallback transparente a snapshot.
@@ -22,7 +21,7 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
 - **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
 - **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
   correlacion).
-- **Diagrama IS\*-LM\* (Mankiw cap. 13)** en plano (Y, TRM): IS\* con pendiente positiva, LM\* vertical, equilibrio en la interseccion. Las curvas se redibujan en vivo cuando cambias choque o modo.
+- **Diagrama IS\*-LM\*** en plano (Y, TRM): IS\* con pendiente positiva, LM\* vertical, equilibrio en la interseccion. Las curvas se redibujan en vivo cuando cambias choque o modo.
 
 ## Estructura
 
@@ -105,6 +104,5 @@ Detalles tecnicos completos en `docs/metodologia.md`.
 
 ## Licencia
 
-Material academico de uso educativo. Modelo y ecuaciones tomados de Mankiw
-(8a/9a ed.) y de las presentaciones del curso de Macroeconomia, UniAndes
-MECA.
+Material de uso educativo. Modelo y ecuaciones siguen el desarrollo estandar
+del modelo Mundell-Fleming para economia abierta pequena.
