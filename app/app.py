@@ -208,6 +208,78 @@ def equilibrium_figure_main(
     return plot_theme(fig, 520)
 
 
+def model_components_figure(
+    calibration: dict[str, float],
+    params: dict[str, float],
+) -> go.Figure:
+    """Cuatro paneles que ilustran los bloques del modelo MF.
+
+    Panel 1: I(r) - inversion como funcion de la tasa.
+    Panel 2: S(Y) - ahorro privado como funcion del producto.
+    Panel 3: NX(TRM) - exportaciones netas como funcion del tipo de cambio.
+    Panel 4: IS* (Y, TRM) - la curva resultante.
+    """
+    from plotly.subplots import make_subplots
+    c = curves.base_components(calibration)
+
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            "1. Inversion: I = I0 (1 - b·(r - r0))",
+            "2. Ahorro privado: S = Y - C(Y-T) - G",
+            "3. Exportaciones netas: NX = X(TRM) - M(TRM, Y)",
+            "4. Curva IS* resultante en (Y, TRM)",
+        ),
+        horizontal_spacing=0.13, vertical_spacing=0.20,
+    )
+
+    # Panel 1: I(r). Eje X = I, Eje Y = r
+    n = 40
+    r_min, r_max = c["rate0"] - 3, c["rate0"] + 3
+    rates = [r_min + i * (r_max - r_min) / (n - 1) for i in range(n)]
+    inv_curve = [c["i0"] * (1.0 - params["investment_rate_sensitivity"] * (r - c["rate0"])) for r in rates]
+    fig.add_trace(go.Scatter(x=inv_curve, y=rates, mode="lines", line={"color": "#2563eb", "width": 2.5}, name="I(r)", showlegend=False), row=1, col=1)
+    fig.add_hline(y=c["rate0"], line_dash="dot", line_color="#888", row=1, col=1)
+    fig.add_annotation(x=c["i0"], y=c["rate0"], text="r₀", showarrow=False, xshift=15, yshift=10, row=1, col=1)
+    fig.update_xaxes(title_text="I (COP bn)", row=1, col=1)
+    fig.update_yaxes(title_text="r (%)", row=1, col=1)
+
+    # Panel 2: S(Y)
+    y_min, y_max = c["y0"] * 0.92, c["y0"] * 1.08
+    ys = [y_min + i * (y_max - y_min) / (n - 1) for i in range(n)]
+    s_curve = [(y - (c["c0"] + params["mpc"] * (y - c["y0"])) - c["g0"]) for y in ys]
+    fig.add_trace(go.Scatter(x=ys, y=s_curve, mode="lines", line={"color": "#0f9f8f", "width": 2.5}, name="S(Y)", showlegend=False), row=1, col=2)
+    s_at_y0 = c["y0"] - c["c0"] - c["g0"]
+    fig.add_trace(go.Scatter(x=[c["y0"]], y=[s_at_y0], mode="markers", marker={"color": "#111827", "size": 9}, showlegend=False), row=1, col=2)
+    fig.update_xaxes(title_text="Y (COP bn)", row=1, col=2)
+    fig.update_yaxes(title_text="S (COP bn)", row=1, col=2)
+
+    # Panel 3: NX(TRM)
+    trm_min, trm_max = c["trm0"] * 0.85, c["trm0"] * 1.15
+    trms = [trm_min + i * (trm_max - trm_min) / (n - 1) for i in range(n)]
+    nx_curve = []
+    for trm in trms:
+        q = (trm / c["trm0"]) - 1
+        xv = c["x0"] * (1 + params["eta_export_q"] * q)
+        mv = c["m0"] * (1 - params["eta_import_q"] * q)
+        nx_curve.append(xv - mv)
+    fig.add_trace(go.Scatter(x=trms, y=nx_curve, mode="lines", line={"color": "#d97706", "width": 2.5}, name="NX(TRM)", showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=[c["trm0"]], y=[c["x0"] - c["m0"]], mode="markers", marker={"color": "#111827", "size": 9}, showlegend=False), row=2, col=1)
+    fig.update_xaxes(title_text="TRM (COP/USD) — derecha = peso depreciado", row=2, col=1)
+    fig.update_yaxes(title_text="NX (COP bn)", row=2, col=1)
+
+    # Panel 4: IS* curve
+    ys_is = [c["y0"] * 0.92 + i * (c["y0"] * 0.16) / (n - 1) for i in range(n)]
+    is_trms = [curves.is_star_trm(calibration, Shock(), params, c["rate0"], y) for y in ys_is]
+    fig.add_trace(go.Scatter(x=ys_is, y=is_trms, mode="lines", line={"color": "#dc2626", "width": 2.5}, name="IS*", showlegend=False), row=2, col=2)
+    fig.add_trace(go.Scatter(x=[c["y0"]], y=[c["trm0"]], mode="markers", marker={"color": "#111827", "size": 9}, showlegend=False), row=2, col=2)
+    fig.update_xaxes(title_text="Y (COP bn)", row=2, col=2)
+    fig.update_yaxes(title_text="TRM (COP/USD)", row=2, col=2)
+
+    fig.update_layout(height=700, template="plotly_white", margin={"l": 30, "r": 30, "t": 60, "b": 30}, font={"family": "Inter, Segoe UI, Arial", "color": "#172033"})
+    return fig
+
+
 def money_market_figure(
     calibration: dict[str, float],
     shock: Shock,
@@ -774,6 +846,17 @@ with right:
                 "- **Politica fiscal en perfecta:** la AD apenas se mueve (en MF flexible perfecta el ajuste va "
                 "via TRM, no via Y). En imperfecta si se mueve."
             )
+
+        st.divider()
+        with st.expander("Derivacion de la curva IS* (4 paneles)", expanded=False):
+            st.caption(
+                "Cuatro bloques que muestran como se construye la curva IS\\* del primer grafico: "
+                "(1) la inversion responde a la tasa, (2) el ahorro privado depende del ingreso, "
+                "(3) las exportaciones netas dependen del tipo de cambio, (4) combinando los tres se "
+                "obtiene IS\\* en el plano (Y, TRM). Esta figura es estatica (no responde a los choques "
+                "de los sliders) y sirve solo para entender los componentes."
+            )
+            st.plotly_chart(model_components_figure(calibration, params), width="stretch")
 
     with tab_compare:
         st.subheader("Tabla legible de base vs simulado")
