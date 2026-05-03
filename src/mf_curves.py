@@ -133,6 +133,123 @@ def impact_rows(
     return pd.DataFrame(rows, columns=["variable", "impacto", "unidad"])
 
 
+def money_market_data(
+    calibration: Mapping[str, float],
+    shock: Shock,
+    params: Mapping[str, float],
+    base_result: Mapping[str, float],
+    sim_result: Mapping[str, float],
+) -> dict[str, object]:
+    """Datos para el grafico del mercado monetario en el plano (M/P, r).
+
+    M/P se normaliza con base = 1.0; un valor 1.10 significa expansion del 10%.
+    Oferta: linea vertical en 1 + money_supply_pct/100.
+    Demanda L(r, Y) bajo el modelo:
+        rate = rate0 + d_policy - kappa_M * M_pct + kappa_Y * y_gap_pct
+    Despejando M_pct dada r y Y:
+        M_pct = (rate0 + d_policy - rate + kappa_Y * y_gap_pct) / kappa_M
+    """
+    c = base_components(calibration)
+    rate0 = c["rate0"]
+    kappa_M = params["money_rate_sensitivity"]
+    kappa_Y = params["output_rate_sensitivity"]
+
+    base_rate = float(base_result["policy_rate_pct"])
+    sim_rate = float(sim_result["policy_rate_pct"])
+    base_y_gap = float(base_result["output_gap_pct"])
+    sim_y_gap = float(sim_result["output_gap_pct"])
+
+    base_supply = 1.0  # base normalized
+    sim_supply = 1.0 + shock_value(shock, "money_supply_pct") / 100.0
+
+    r_center = (base_rate + sim_rate) / 2
+    r_range = max(2.5, abs(sim_rate - base_rate) * 2.0 + 2.5)
+    r_min = r_center - r_range
+    r_max = r_center + r_range
+    n_points = 60
+    step = (r_max - r_min) / (n_points - 1)
+    rates = [r_min + i * step for i in range(n_points)]
+
+    base_d_policy = 0.0  # base shock has no policy rate change
+    sim_d_policy = bp(shock_value(shock, "domestic_policy_rate_bp"))
+
+    base_demand = [
+        1.0 + ((rate0 + base_d_policy - r + kappa_Y * base_y_gap) / kappa_M) / 100.0
+        for r in rates
+    ]
+    sim_demand = [
+        1.0 + ((rate0 + sim_d_policy - r + kappa_Y * sim_y_gap) / kappa_M) / 100.0
+        for r in rates
+    ]
+
+    return {
+        "rates": rates,
+        "base_supply": base_supply,
+        "sim_supply": sim_supply,
+        "base_demand": base_demand,
+        "sim_demand": sim_demand,
+        "base_eq": (base_supply, base_rate),
+        "sim_eq": (sim_supply, sim_rate),
+    }
+
+
+def ad_as_data(
+    calibration: Mapping[str, float],
+    shock: Shock,
+    params: Mapping[str, float],
+    base_result: Mapping[str, float],
+    sim_result: Mapping[str, float],
+) -> dict[str, object]:
+    """Datos para el grafico AD-AS en el plano (Y, P).
+
+    P se normaliza con base = 1.0. AS de corto plazo es horizontal en P=1.0
+    (precios fijos). AS de largo plazo es vertical en Y_n (= Y0 base).
+
+    AD se deriva de la LM dado r anclada por UIP en el modo perfecta. Para
+    cada P, M/P real = base * (M_supply / P_pct). Resuelve Y de la LM:
+        Y = Y0 * (1 + (rate_delta + kappa_M * M_pct) / kappa_Y)
+    Con M_pct efectivo = M_supply_pct - P_pct.
+    """
+    c = base_components(calibration)
+    y0 = c["y0"]
+    rate0 = c["rate0"]
+    kappa_M = params["money_rate_sensitivity"]
+    kappa_Y = params["output_rate_sensitivity"]
+
+    base_rate = float(base_result["policy_rate_pct"])
+    sim_rate = float(sim_result["policy_rate_pct"])
+    rate_delta_base = base_rate - rate0
+    rate_delta_sim = sim_rate - rate0
+
+    money_pct_sim = shock_value(shock, "money_supply_pct")
+
+    p_min, p_max = 0.85, 1.15
+    n_points = 60
+    step = (p_max - p_min) / (n_points - 1)
+    prices = [p_min + i * step for i in range(n_points)]
+
+    def y_at_price(p: float, rate_delta: float, m_pct_supply: float) -> float:
+        p_pct = (p - 1.0) * 100.0
+        m_pct_effective = m_pct_supply - p_pct
+        y_gap_pct = (rate_delta + kappa_M * m_pct_effective) / kappa_Y
+        return y0 * (1.0 + y_gap_pct / 100.0)
+
+    base_ys = [y_at_price(p, 0.0, 0.0) for p in prices]
+    sim_ys = [y_at_price(p, rate_delta_sim, money_pct_sim) for p in prices]
+
+    y_n = y0  # nivel natural
+
+    return {
+        "prices": prices,
+        "base_ad": base_ys,
+        "sim_ad": sim_ys,
+        "y_n": y_n,
+        "p_base": 1.0,
+        "base_eq": (y_at_price(1.0, 0.0, 0.0), 1.0),
+        "sim_eq": (y_at_price(1.0, rate_delta_sim, money_pct_sim), 1.0),
+    }
+
+
 def comparison_rows(
     calibration: Mapping[str, float],
     base_result: Mapping[str, float],

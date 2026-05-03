@@ -201,6 +201,117 @@ def equilibrium_figure_main(
     return plot_theme(fig, 520)
 
 
+def money_market_figure(
+    calibration: dict[str, float],
+    shock: Shock,
+    params: dict[str, float],
+    base_result: dict[str, float],
+    sim_result: dict[str, float],
+) -> go.Figure:
+    """Mercado monetario en (M/P, r): oferta vertical, demanda L(r, Y) downward."""
+    data = curves.money_market_data(calibration, shock, params, base_result, sim_result)
+    rates = data["rates"]
+    r_min, r_max = min(rates), max(rates)
+
+    fig = go.Figure()
+    # Demanda base
+    fig.add_trace(go.Scatter(
+        x=data["base_demand"], y=rates, mode="lines",
+        name="Demanda L(r, Y) base", line={"color": "#2563eb", "width": 2.5},
+    ))
+    # Demanda escenario (puede coincidir con base si no hay choque a Y o policy)
+    fig.add_trace(go.Scatter(
+        x=data["sim_demand"], y=rates, mode="lines",
+        name="Demanda L(r, Y) escenario", line={"color": "#2563eb", "width": 2.5, "dash": "dash"},
+    ))
+    # Oferta base (vertical)
+    fig.add_trace(go.Scatter(
+        x=[data["base_supply"], data["base_supply"]], y=[r_min, r_max], mode="lines",
+        name="Oferta M/P base", line={"color": "#0f9f8f", "width": 2.5},
+    ))
+    # Oferta escenario
+    fig.add_trace(go.Scatter(
+        x=[data["sim_supply"], data["sim_supply"]], y=[r_min, r_max], mode="lines",
+        name="Oferta M/P escenario", line={"color": "#0f9f8f", "width": 2.5, "dash": "dash"},
+    ))
+    # Equilibrios
+    fig.add_trace(go.Scatter(
+        x=[data["base_eq"][0]], y=[data["base_eq"][1]], mode="markers+text",
+        marker={"color": "#111827", "size": 11},
+        text=["Base"], textposition="top right", showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=[data["sim_eq"][0]], y=[data["sim_eq"][1]], mode="markers+text",
+        marker={"color": "#dc2626", "size": 12, "symbol": "diamond"},
+        text=["Escenario"], textposition="bottom right", showlegend=False,
+    ))
+    fig.update_layout(
+        xaxis_title="M/P real (normalizado, base = 1.00)",
+        yaxis_title="Tasa de interes domestica r (%)",
+        hovermode="closest",
+    )
+    return plot_theme(fig, 460)
+
+
+def ad_as_figure(
+    calibration: dict[str, float],
+    shock: Shock,
+    params: dict[str, float],
+    base_result: dict[str, float],
+    sim_result: dict[str, float],
+) -> go.Figure:
+    """AD-AS en (Y, P): AS_SR horizontal, AS_LR vertical, AD downward."""
+    data = curves.ad_as_data(calibration, shock, params, base_result, sim_result)
+    prices = data["prices"]
+    y_n = data["y_n"]
+    base_ys = data["base_ad"]
+    sim_ys = data["sim_ad"]
+
+    y_min = min(min(base_ys), min(sim_ys), y_n) * 0.95
+    y_max = max(max(base_ys), max(sim_ys), y_n) * 1.05
+
+    fig = go.Figure()
+    # AD base
+    fig.add_trace(go.Scatter(
+        x=base_ys, y=prices, mode="lines",
+        name="AD base", line={"color": "#2563eb", "width": 2.5},
+    ))
+    # AD escenario
+    fig.add_trace(go.Scatter(
+        x=sim_ys, y=prices, mode="lines",
+        name="AD escenario", line={"color": "#2563eb", "width": 2.5, "dash": "dash"},
+    ))
+    # AS corto plazo (horizontal en P=1.0, precios fijos)
+    fig.add_trace(go.Scatter(
+        x=[y_min, y_max], y=[1.0, 1.0], mode="lines",
+        name="AS corto plazo (precios fijos)",
+        line={"color": "#0f9f8f", "width": 2.5},
+    ))
+    # AS largo plazo (vertical en Y_n)
+    fig.add_trace(go.Scatter(
+        x=[y_n, y_n], y=[min(prices), max(prices)], mode="lines",
+        name="AS largo plazo (Y_n)",
+        line={"color": "#d97706", "width": 2.5, "dash": "dot"},
+    ))
+    # Equilibrios
+    fig.add_trace(go.Scatter(
+        x=[data["base_eq"][0]], y=[data["base_eq"][1]], mode="markers+text",
+        marker={"color": "#111827", "size": 11},
+        text=["Base"], textposition="top right", showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=[data["sim_eq"][0]], y=[data["sim_eq"][1]], mode="markers+text",
+        marker={"color": "#dc2626", "size": 12, "symbol": "diamond"},
+        text=["Escenario"], textposition="bottom right", showlegend=False,
+    ))
+    fig.update_layout(
+        xaxis_title="Y - PIB real trimestral (COP miles de millones)",
+        yaxis_title="Nivel de precios P (normalizado, base = 1.00)",
+        hovermode="closest",
+    )
+    return plot_theme(fig, 460)
+
+
 def impact_figure(calibration: dict[str, float], base_result: dict[str, float], sim_result: dict[str, float]) -> go.Figure:
     df = curves.impact_rows(calibration, base_result, sim_result)
     df["texto"] = df.apply(lambda r: f"{fmt_delta(r['impacto'], 2)} {r['unidad']}", axis=1)
@@ -570,6 +681,47 @@ with right:
                 "- **Choque a r externa (Fed/riesgo):** sube r local via UIP. IS\\* baja (la I cae) y LM\\* se "
                 "mueve (Y consistente con la nueva r). Equilibrio: Y y TRM ajustan en la direccion del choque.\n"
                 "- **Choque real (Brent, NX_aut):** desplaza IS\\* directamente. LM\\* sin cambio."
+            )
+
+        st.divider()
+        st.subheader("Mercado monetario en (M/P, r)")
+        st.caption(
+            "**Demanda L(r, Y)** (azul, pendiente negativa): mayor r = mayor costo de oportunidad de tener saldos "
+            "reales = menor demanda. **Oferta M/P** (verde, vertical): el banco central fija M; con precios fijos "
+            "P, M/P queda determinado. Equilibrio: tasa que iguala oferta y demanda. Choque a M desplaza la oferta; "
+            "choque a Y o a tasa de politica desplaza la demanda. M/P se normaliza con base = 1.00."
+        )
+        st.plotly_chart(money_market_figure(calibration, shock, params, base, sim), width="stretch")
+        with st.expander("Como leer esta grafica"):
+            st.markdown(
+                "- **Choque +10% M:** la oferta vertical se mueve a 1.10. Bajo movilidad perfecta la tasa queda "
+                "anclada por UIP, asi que el mercado monetario se acomoda con desplazamiento de la demanda (Y↑). "
+                "Bajo imperfecta la tasa cae.\n"
+                "- **Choque a Y (fiscal en imperfecta):** la demanda L se desplaza a la derecha (mayor Y demanda "
+                "mas saldos reales para transacciones). En equilibrio la tasa sube.\n"
+                "- **Choque a tasa Banrep (imperfecta):** la regla del banco central impone una tasa mayor; la "
+                "demanda baja a esa tasa, presionando ajuste de la oferta o de Y."
+            )
+
+        st.divider()
+        st.subheader("Demanda y oferta agregadas en (Y, P)")
+        st.caption(
+            "**AD** (azul, pendiente negativa): para cada P, el Y consistente con IS-LM. Mayor P reduce M/P real, "
+            "sube la tasa (en imperfecta) o reduce Y demandado por LM. **AS corto plazo** (verde, horizontal): "
+            "precios fijos en P=1.0. **AS largo plazo** (ambar, vertical): producto natural Y_n. Equilibrio SR = "
+            "AD ∩ AS_SR; equilibrio LR = AD ∩ AS_LR."
+        )
+        st.plotly_chart(ad_as_figure(calibration, shock, params, base, sim), width="stretch")
+        with st.expander("Como leer esta grafica"):
+            st.markdown(
+                "- En **corto plazo** (este modelo): los precios estan fijos en P=1, asi que el equilibrio queda "
+                "donde AD cruza la AS horizontal. Y puede desviarse de Y_n.\n"
+                "- En **largo plazo**: los precios suben hasta que Y vuelve a Y_n. Choques de demanda no afectan "
+                "Y en el LR, solo P.\n"
+                "- **Politica monetaria expansiva (+M):** AD se mueve a la derecha. SR: Y sube, P fijo. "
+                "LR: P sube proporcional, Y vuelve a Y_n.\n"
+                "- **Politica fiscal en perfecta:** la AD apenas se mueve (en MF flexible perfecta el ajuste va "
+                "via TRM, no via Y). En imperfecta si se mueve."
             )
 
     with tab_compare:
