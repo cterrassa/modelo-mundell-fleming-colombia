@@ -43,211 +43,9 @@ st.set_page_config(page_title="Mundell-Fleming Colombia", layout="wide")
 
 CSS = """
 <style>
-  :root {
-    --ink: #172033;
-    --muted: #667085;
-    --line: #d9e0ea;
-    --panel: #ffffff;
-    --canvas: #f6f8fb;
-    --blue: #2563eb;
-    --teal: #0f9f8f;
-    --amber: #d97706;
-    --rose: #dc2626;
-    --green: #047857;
-  }
-  .stApp {
-    background: var(--canvas);
-    color: var(--ink);
-  }
-  .block-container {
-    max-width: 1540px;
-    padding-top: 1.2rem;
-    padding-bottom: 3rem;
-  }
-  h1, h2, h3 {
-    letter-spacing: 0;
-  }
-  div[data-testid="stMetric"] {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 14px 16px;
-    box-shadow: 0 8px 18px rgba(16, 24, 40, 0.045);
-  }
-  div[data-testid="stMetricLabel"] {
-    color: var(--muted);
-  }
-  .app-hero {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-left: 6px solid var(--teal);
-    border-radius: 8px;
-    padding: 22px 24px;
-    margin-bottom: 16px;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.055);
-  }
-  .hero-title {
-    font-size: 2.05rem;
-    line-height: 1.12;
-    margin: 0 0 8px 0;
-    font-weight: 780;
-    color: var(--ink);
-  }
-  .hero-subtitle {
-    max-width: 980px;
-    color: #475467;
-    font-size: 1rem;
-    line-height: 1.55;
-    margin: 0;
-  }
-  .badge-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid #cfd8e5;
-    background: #f8fafc;
-    color: #344054;
-    border-radius: 999px;
-    padding: 6px 10px;
-    font-size: 0.83rem;
-    white-space: nowrap;
-  }
-  .note {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-left: 5px solid var(--blue);
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin: 10px 0 16px 0;
-    color: #344054;
-    line-height: 1.48;
-  }
-  .note strong {
-    color: var(--ink);
-  }
-  .story {
-    background: #f8fbff;
-    border: 1px solid #cfe0f7;
-    border-left: 5px solid var(--blue);
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-  }
-  .story-title {
-    font-weight: 760;
-    color: var(--ink);
-    margin-bottom: 6px;
-  }
-  .story ul {
-    margin: 6px 0 0 18px;
-    padding: 0;
-  }
-  .story li {
-    margin: 4px 0;
-  }
-  .legend-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 8px 0 12px 0;
-  }
-  .legend-pill {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 8px 10px;
-    color: #344054;
-    font-size: 0.88rem;
-  }
-  .swatch {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
-  }
-  .mini-label {
-    color: var(--muted);
-    font-size: 0.86rem;
-    line-height: 1.42;
-    margin-top: -6px;
-    margin-bottom: 8px;
-  }
-  .section-caption {
-    color: var(--muted);
-    font-size: 0.92rem;
-    line-height: 1.48;
-    margin-top: -8px;
-    margin-bottom: 10px;
-  }
-  .data-box {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 14px 16px;
-    line-height: 1.5;
-    margin-bottom: 12px;
-  }
-  .small-muted {
-    color: var(--muted);
-    font-size: 0.86rem;
-  }
-  .guided-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 0 0 18px 0;
-  }
-  .guided-step {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 13px 15px;
-    box-shadow: 0 8px 18px rgba(16, 24, 40, 0.035);
-  }
-  .guided-step strong {
-    display: block;
-    color: var(--ink);
-    margin-bottom: 3px;
-  }
-  .guided-step span {
-    color: var(--muted);
-    font-size: 0.88rem;
-    line-height: 1.38;
-  }
-  .data-status-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 12px 0 16px 0;
-  }
-  .data-status-card {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 12px 14px;
-  }
-  .data-status-card strong {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--ink);
-  }
-  .data-status-card span {
-    color: var(--muted);
-    font-size: 0.88rem;
-    line-height: 1.42;
-  }
-  @media (max-width: 900px) {
-    .guided-grid, .data-status-grid {
-      grid-template-columns: 1fr;
-    }
-  }
+  .block-container { max-width: 1540px; padding-top: 1.2rem; padding-bottom: 3rem; }
+  div[data-testid="stMetric"] { border: 1px solid #d9e0ea; border-radius: 8px; padding: 12px 14px; }
+  div[data-testid="stMetricLabel"] { color: #667085; }
 </style>
 """
 
@@ -548,10 +346,10 @@ def active_shock_items(shock: Shock, sensitivity_scale: float) -> list[str]:
     for field, label, unit, note in specs:
         value = curves.shock_value(shock, field)
         if abs(value) > 1e-9:
-            items.append(f"<li><strong>{label}:</strong> {fmt_delta(value, 1)} {unit}. {note}</li>")
+            items.append(f"**{label}:** {fmt_delta(value, 1)} {unit}. {note}")
     if abs(sensitivity_scale - 1.0) > 1e-9:
         items.append(
-            f"<li><strong>Sensibilidad cambiaria:</strong> {fmt(sensitivity_scale, 2)}x. Amplifica la reaccion de la TRM (solo modo imperfecta).</li>"
+            f"**Sensibilidad cambiaria:** {fmt(sensitivity_scale, 2)}x. Amplifica la reaccion de la TRM (solo modo imperfecta)."
         )
     return items
 
@@ -567,10 +365,10 @@ def mechanism_items(base_result: dict[str, float], sim_result: dict[str, float])
     rate_text = "sube" if rate_delta > 0 else "baja" if rate_delta < 0 else "no cambia"
     bp_text = "mejora la presion externa" if bp_delta > 0 else "deteriora la presion externa" if bp_delta < 0 else "mantiene el balance externo"
     return [
-        f"<li>La TRM cambia {fmt_delta(trm_delta, 2, ' COP')} ({fmt_delta(sim_result['trm_change_pct'], 2, '%')}): lectura central = <strong>{trm_text}</strong>.</li>",
-        f"<li>El producto se mueve {fmt_delta(y_delta, 1, ' COP bn')}: el escenario implica <strong>{y_text}</strong> frente al nivel base.</li>",
-        f"<li>La tasa domestica {rate_text} {fmt_delta(rate_delta, 2, ' p.p.')}; esto afecta inversion, demanda de dinero y flujos de capital.</li>",
-        f"<li>El balance de pagos cambia {fmt_delta(bp_delta, 1, ' USD m')}: <strong>{bp_text}</strong> en el bloque externo.</li>",
+        f"La TRM cambia {fmt_delta(trm_delta, 2, ' COP')} ({fmt_delta(sim_result['trm_change_pct'], 2, '%')}): lectura central = **{trm_text}**.",
+        f"El producto se mueve {fmt_delta(y_delta, 1, ' COP bn')}: el escenario implica **{y_text}** frente al nivel base.",
+        f"La tasa domestica {rate_text} {fmt_delta(rate_delta, 2, ' p.p.')}; esto afecta inversion, demanda de dinero y flujos de capital.",
+        f"El balance de pagos cambia {fmt_delta(bp_delta, 1, ' USD m')}: **{bp_text}** en el bloque externo.",
     ]
 
 
@@ -586,32 +384,27 @@ def scenario_guardrails(base_result: dict[str, float], sim_result: dict[str, flo
     warnings = []
     if abs(sim_result["trm_change_pct"]) > 25:
         warnings.append(
-            f"<li><strong>Escenario extremo:</strong> la TRM cambia {fmt_delta(sim_result['trm_change_pct'], 1, '%')}. Interpreta el resultado como prueba de sensibilidad, no como pronostico.</li>"
+            f"**Escenario extremo:** la TRM cambia {fmt_delta(sim_result['trm_change_pct'], 1, '%')}. Interpreta el resultado como prueba de sensibilidad, no como pronostico."
         )
     if abs(sim_result["output_gap_pct"]) > 8:
         warnings.append(
-            f"<li><strong>Brecha grande:</strong> el producto cambia {fmt_delta(sim_result['output_gap_pct'], 1, '%')} frente al nivel base; puede estar fuera del rango donde una aproximacion lineal es confiable.</li>"
+            f"**Brecha grande:** el producto cambia {fmt_delta(sim_result['output_gap_pct'], 1, '%')} frente al nivel base; puede estar fuera del rango donde una aproximacion lineal es confiable."
         )
     if sensitivity_scale != 1.0:
         warnings.append(
-            f"<li><strong>Sensibilidad cambiaria ajustada:</strong> {fmt(sensitivity_scale, 2)}x es un parametro exploratorio, no un dato observado.</li>"
+            f"**Sensibilidad cambiaria ajustada:** {fmt(sensitivity_scale, 2)}x es un parametro exploratorio, no un dato observado."
         )
     return warnings
 
 
-def render_story(title: str, items: list[str]) -> None:
+def render_story(title: str, items: list[str], style: str = "info") -> None:
     if not items:
-        items = ["<li>No hay choques activos. Estas viendo el punto de calibracion base.</li>"]
-    normalized_items = [item if item.strip().startswith("<li>") else f"<li>{item}</li>" for item in items]
-    st.markdown(
-        f"""
-        <div class="story">
-          <div class="story-title">{title}</div>
-          <ul>{''.join(normalized_items)}</ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        items = ["No hay choques activos. Estas viendo el punto de calibracion base."]
+    body = f"**{title}**\n\n" + "\n".join(f"- {item}" for item in items)
+    if style == "warning":
+        st.warning(body)
+    else:
+        st.info(body)
 
 
 def control_slider(label: str, help_text: str, *args, **kwargs):
@@ -639,43 +432,22 @@ fed_badge = _live_label("fed_funds", calibration_snapshot.get("foreign_rate_refe
 brent_badge = _live_label("brent", calibration_snapshot.get("oil_reference_date", "n.d."))
 
 
+st.title("Modelo Mundell-Fleming para Colombia")
 st.markdown(
-    f"""
-    <div class="app-hero">
-      <div class="hero-title">Modelo Mundell-Fleming para Colombia</div>
-      <p class="hero-subtitle">
-        Simulador de economia abierta pequena con tasa de cambio flexible. La herramienta traduce cada choque en
-        movimientos de demanda agregada, mercado monetario, balance de pagos y TRM. Un aumento de la TRM significa
-        depreciacion del peso colombiano.
-      </p>
-      <div class="badge-row">
-        <span class="badge">Cuentas nacionales: {calibration.get("gdp_data_period", "n.d.")} (snapshot)</span>
-        <span class="badge">TRM: {calibration.get("trm_cop_per_usd", 0):,.2f} COP/USD &middot; {trm_badge}</span>
-        <span class="badge">Fed funds: {calibration.get("foreign_rate_pct", 0):.2f}% &middot; {fed_badge}</span>
-        <span class="badge">Brent: USD {calibration.get("oil_brent_usd_per_barrel", 0):.2f} &middot; {brent_badge}</span>
-        <span class="badge">Refrescado: {live["fetched_at"]}</span>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+    "Simulador de economia abierta pequena con tasa de cambio flexible. Cada choque mueve "
+    "demanda agregada, mercado monetario, balance de pagos y TRM. **Mayor TRM = peso depreciado.**"
 )
 
-refresh_col, _ = st.columns([0.22, 0.78])
-with refresh_col:
-    if st.button("Refrescar datos en vivo", help="Re-consulta TRM (Datos Abiertos), Fed funds y Brent (FRED). Ignora la cache."):
-        get_live_overrides.clear()
-        st.rerun()
+badge_cols = st.columns(5)
+badge_cols[0].caption(f"**Cuentas nacionales:** {calibration.get('gdp_data_period', 'n.d.')} (snapshot)")
+badge_cols[1].caption(f"**TRM:** {calibration.get('trm_cop_per_usd', 0):,.2f} COP/USD - {trm_badge}")
+badge_cols[2].caption(f"**Fed funds:** {calibration.get('foreign_rate_pct', 0):.2f}% - {fed_badge}")
+badge_cols[3].caption(f"**Brent:** USD {calibration.get('oil_brent_usd_per_barrel', 0):.2f} - {brent_badge}")
+badge_cols[4].caption(f"**Refrescado:** {live['fetched_at']}")
 
-st.markdown(
-    """
-    <div class="guided-grid">
-      <div class="guided-step"><strong>1. Elige un choque</strong><span>Parte de un escenario macroeconomico reconocible.</span></div>
-      <div class="guided-step"><strong>2. Mira la TRM</strong><span>Identifica direccion, magnitud y presion cambiaria.</span></div>
-      <div class="guided-step"><strong>3. Entiende el mecanismo</strong><span>Lee las curvas y la descomposicion para explicar el resultado.</span></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+if st.button("Refrescar datos en vivo", help="Re-consulta TRM (Datos Abiertos), Fed funds y Brent (FRED). Ignora la cache."):
+    get_live_overrides.clear()
+    st.rerun()
 
 
 left, right = st.columns([0.31, 0.69], gap="large")
@@ -690,10 +462,7 @@ with left:
         help="Perfecta = caso textbook (Mankiw cap. 13). Imperfecta = calibracion empirica para Colombia.",
     )
     st.caption(MOBILITY_DESCRIPTIONS[mobility])
-    st.markdown(
-        "<div class='mini-label'>Usa el modo guiado para explorar rapido. Cambia a experto solo si quieres tocar cada supuesto.</div>",
-        unsafe_allow_html=True,
-    )
+    st.caption("Usa el modo guiado para explorar rapido. Cambia a experto solo si quieres tocar cada supuesto.")
     mode = st.radio(
         "Modo de uso",
         ["Guiado", "Experto"],
@@ -731,20 +500,12 @@ with left:
             0.05,
         )
         shock = scale_shock(selected, intensity_options[intensity_label])
-        st.markdown(
-            """
-            <div class="note">
-              <strong>Modo guiado:</strong> la app aplica el escenario elegido con la intensidad seleccionada.
-              Para modificar una variable especifica, cambia a modo experto.
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.info(
+            "**Modo guiado:** la app aplica el escenario elegido con la intensidad seleccionada. "
+            "Para modificar una variable especifica, cambia a modo experto."
         )
     else:
-        st.markdown(
-            "<div class='mini-label'>Modo experto: 8 palancas con respaldo en Mankiw cap. 13 y datos colombianos. Bloques arrancan cerrados.</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("Modo experto: 8 palancas con respaldo en Mankiw cap. 13 y datos colombianos. Bloques arrancan cerrados.")
         with st.expander("Politica fiscal", expanded=False):
             government_spending_pct = control_slider(
                 "Gasto publico G (%)",
@@ -815,21 +576,15 @@ sim = simulate(calibration, shock, scenario_params, mobility=mobility)
 
 with right:
     st.subheader("Lectura rapida")
-    st.markdown(
-        """
-        <div class="note">
-          <strong>Uso correcto:</strong> esta herramienta no pronostica la TRM. Es una simulacion comparativa
-          calibrada con cortes de datos mixtos: TRM diaria de 2026-04-24, cuentas nacionales y balanza de pagos
-          de 2025Q4, e inflacion de 2026-03.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.info(
+        "**Uso correcto:** esta herramienta no pronostica la TRM. Es una simulacion comparativa "
+        "calibrada con un snapshot fijo (cuentas nacionales 2025Q4) mas series en vivo de TRM, Fed funds y Brent."
     )
     render_story("Choques activos", active_shock_items(shock, exchange_sensitivity_scale))
     render_story("Mecanismo economico del escenario", mechanism_items(base, sim))
     guardrails = scenario_guardrails(base, sim, exchange_sensitivity_scale)
     if guardrails:
-        render_story("Alertas de interpretacion", guardrails)
+        render_story("Alertas de interpretacion", guardrails, style="warning")
 
     m1, m2, m3, m4 = st.columns(4)
     with m1:
@@ -891,14 +646,9 @@ with right:
             help="PIB real trimestral en COP miles de millones a precios constantes de 2015. Dato base: cuentas nacionales DANE.",
         )
 
-    st.markdown(
-        """
-        <div class="note">
-          <strong>Sobre el PIB real:</strong> el valor mostrado es el nivel trimestral de cuentas nacionales,
-          medido en COP miles de millones a precios constantes de 2015. No debe leerse como PIB anual ni como pesos corrientes.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        "**Sobre el PIB real:** el valor mostrado es el nivel **trimestral** de cuentas nacionales en "
+        "COP miles de millones, precios constantes de 2015. No es PIB anual ni pesos corrientes."
     )
 
     tab_summary, tab_curves, tab_compare, tab_table, tab_backtest, tab_data = st.tabs(
@@ -907,32 +657,18 @@ with right:
 
     with tab_summary:
         st.subheader("Mapa de impactos")
-        st.markdown(
-            "<div class='section-caption'>Esta grafica reemplaza las barras acumulativas: cada barra es el cambio frente al escenario base, expresado en unidades comparables o normalizadas.</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("Cada barra es el cambio frente al escenario base, expresado en unidades comparables o normalizadas.")
         st.plotly_chart(impact_figure(calibration, base, sim), width="stretch")
 
         st.subheader("Que explica el cambio de la TRM")
-        st.markdown(
-            "<div class='section-caption'>La descomposicion es aproximada: separa presiones financieras, externas y de balance de pagos. Rojo presiona depreciacion; verde presiona apreciacion.</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("Descomposicion aproximada por factor. Rojo presiona depreciacion; verde presiona apreciacion.")
         st.plotly_chart(trm_contribution_figure(calibration, shock, params, scenario_params, base, sim), width="stretch")
 
     with tab_curves:
         st.subheader("Equilibrio IS-LM-BP")
-        st.markdown(
-            """
-            <div class="legend-strip">
-              <span class="legend-pill"><span class="swatch" style="background:#2563eb"></span>IS: demanda agregada</span>
-              <span class="legend-pill"><span class="swatch" style="background:#0f9f8f"></span>LM: mercado monetario</span>
-              <span class="legend-pill"><span class="swatch" style="background:#d97706"></span>BP=0: equilibrio externo</span>
-              <span class="legend-pill">Linea solida = base</span>
-              <span class="legend-pill">Linea punteada = escenario</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.caption(
+            "IS (azul) = demanda agregada. LM (verde-azulado) = mercado monetario. BP=0 (ambar) = equilibrio externo. "
+            "Linea solida = base; linea punteada = escenario."
         )
         st.plotly_chart(equilibrium_figure(calibration, shock, params, scenario_params, base, sim, mobility=mobility), width="stretch")
         with st.expander("Como leer esta grafica"):
@@ -944,15 +680,9 @@ with right:
             )
 
         st.subheader("TRM y presion externa")
-        st.markdown(
-            """
-            <div class="legend-strip">
-              <span class="legend-pill">Eje horizontal: TRM. Hacia la derecha = depreciacion</span>
-              <span class="legend-pill">Eje vertical: balance externo. Sobre cero = presion de apreciacion</span>
-              <span class="legend-pill">La curva punteada muestra como el choque cambia la presion externa</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.caption(
+            "Eje horizontal: TRM (a la derecha = depreciacion). Eje vertical: balance externo (sobre cero = presion de apreciacion). "
+            "La curva punteada muestra como el choque mueve la presion externa."
         )
         st.plotly_chart(
             exchange_adjustment_figure(calibration, shock, params, scenario_params, base, sim),
@@ -961,10 +691,7 @@ with right:
 
     with tab_compare:
         st.subheader("Tabla legible de base vs simulado")
-        st.markdown(
-            "<div class='section-caption'>La tabla mantiene cada variable en su unidad natural y agrega una columna de lectura para evitar mezclar escalas.</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("Cada variable en su unidad natural; columna de lectura para evitar mezclar escalas.")
         table = comparison_table(calibration, base, sim)
         display_table = table.copy()
         for col in ["base", "simulado", "cambio", "cambio_pct"]:
@@ -980,12 +707,10 @@ with right:
 
     with tab_table:
         st.subheader("Cuentas nacionales y proyecciones a 5 anios")
-        st.markdown(
-            "<div class='section-caption'>5 anios historicos (DANE) + 5 anios proyectados (modelo). "
-            "Los flujos historicos suman los 4 trimestres del anio; las proyecciones aplican el % de cambio del modelo "
-            "al ultimo anio observado para evitar saltos artificiales por estacionalidad. Sin Monte Carlo: cada anio "
-            "es solucion deterministica del modelo bajo el escenario elegido.</div>",
-            unsafe_allow_html=True,
+        st.caption(
+            "5 anios historicos (DANE) + 5 anios proyectados (modelo). Los flujos historicos suman los 4 trimestres "
+            "del anio; las proyecciones aplican el % de cambio del modelo al ultimo anio observado para evitar saltos "
+            "artificiales por estacionalidad. Sin Monte Carlo: cada anio es solucion deterministica del escenario."
         )
 
         scenario_keys = list(PROJECTION_SCENARIOS.keys())
@@ -1033,10 +758,9 @@ with right:
 
     with tab_backtest:
         st.subheader("Backtesting contra realidad colombiana")
-        st.markdown(
-            "<div class='section-caption'>Para cada trimestre, alimentamos el modelo con el cambio observado de Fed funds y Brent, "
-            "y comparamos el cambio % de TRM predicho contra el observado. La cache se renueva cada 24 horas.</div>",
-            unsafe_allow_html=True,
+        st.caption(
+            "Para cada trimestre, alimentamos el modelo con el cambio observado de Fed funds y Brent, y comparamos "
+            "el cambio % de TRM predicho contra el observado. La cache se renueva cada 24 horas."
         )
 
         if st.button("Correr backtest", help="Descarga TRM (Datos Abiertos) + Fed funds y Brent (FRED) y corre el modelo trimestre a trimestre."):
@@ -1077,41 +801,24 @@ with right:
                         bt_view[col] = bt_view[col].map(lambda x: fmt(x, 2))
                     st.dataframe(bt_view, width="stretch", hide_index=True)
 
-                st.markdown(
-                    "<div class='note'><strong>Lectura:</strong> el modelo es estatico-comparativo y solo incluye Fed funds y Brent como exogenos en este backtest. "
+                st.info(
+                    "**Lectura:** el modelo es estatico-comparativo y solo incluye Fed funds y Brent como exogenos en este backtest. "
                     "Episodios donde el modelo subestima la depreciacion (ej. 2020Q2 COVID, 2022 inflacion global, 2023 ruido politico) son limites del modelo, no bugs. "
-                    "La prima de riesgo Colombia y choques de oferta domesticos no entran al backtest.</div>",
-                    unsafe_allow_html=True,
+                    "La prima de riesgo Colombia y choques de oferta domesticos no entran al backtest."
                 )
         else:
             st.info("Pulsa 'Correr backtest' para descargar series historicas y ver predicho vs observado. La descarga puede tomar 5-15 segundos la primera vez.")
 
     with tab_data:
         st.subheader("Calibracion base")
-        st.markdown(
-            """
-            <div class="data-box">
-              <strong>Lectura de unidades:</strong> las variables reales del DANE estan en COP miles de millones
-              a precios constantes de 2015. Las variables externas de balanza de pagos estan en USD millones.
-              Las tasas estan en porcentaje anual o puntos porcentuales segun corresponda.
-            </div>
-            <div class="data-status-grid">
-              <div class="data-status-card">
-                <strong>Datos observados</strong>
-                <span>TRM, cuentas nacionales, inflacion y tasa de politica provienen de fuentes publicas oficiales.</span>
-              </div>
-              <div class="data-status-card">
-                <strong>Proxies documentados</strong>
-                <span>Prima de riesgo, Brent, M3 y reservas se marcan como proxy cuando la serie directa no esta integrada.</span>
-              </div>
-              <div class="data-status-card">
-                <strong>Parametros supuestos</strong>
-                <span>Elasticidades y sensibilidades son calibrables; usa el modo experto para explorar incertidumbre.</span>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.info(
+            "**Lectura de unidades:** variables reales del DANE en COP miles de millones a precios constantes de 2015. "
+            "Saldos externos en USD millones. Tasas en % anual."
         )
+        sc1, sc2, sc3 = st.columns(3)
+        sc1.markdown("**Datos observados**\n\nTRM, cuentas nacionales, inflacion y tasa de politica desde fuentes publicas oficiales.")
+        sc2.markdown("**Proxies documentados**\n\nPrima de riesgo, Brent, M3 y reservas vienen como proxy si la serie directa no esta integrada.")
+        sc3.markdown("**Parametros supuestos**\n\nElasticidades y sensibilidades son calibrables; el modo experto explora la incertidumbre.")
         base_rows = [
             ["TRM", calibration["trm_cop_per_usd"], "COP/USD", calibration["trm_latest_date"], "Observada"],
             ["PIB real trimestral", calibration["gdp_real_cop_billion"], "COP bn, precios 2015", calibration["gdp_data_period"], "DANE"],
