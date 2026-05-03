@@ -9,23 +9,35 @@ import pandas as pd
 
 @dataclass
 class Shock:
+    """Shocks del modelo Mundell-Fleming para Colombia.
+
+    Ocho dimensiones, todas con respaldo en Mankiw cap. 13 o relevantes para Colombia.
+
+    Politica domestica:
+    - ``government_spending_pct``: choque a G como % del G base.
+    - ``tax_pct_of_gdp``: choque a impuestos como % del PIB base.
+    - ``money_supply_pct``: choque a M3 como % de la base monetaria.
+    - ``domestic_policy_rate_bp``: choque a la tasa Banrep, en puntos basicos.
+      Bajo movilidad perfecta queda anulado por la paridad de intereses.
+
+    Externas:
+    - ``foreign_rate_bp``: choque a la tasa externa (Fed funds), en puntos basicos.
+    - ``risk_premium_bp``: choque a la prima de riesgo Colombia, en puntos basicos.
+    - ``oil_price_pct``: choque al precio del petroleo, en %. Para Colombia
+      Brent y exportaciones estan correlacionados; ``eta_oil_export`` calibra la
+      transmision a exportaciones.
+    - ``nx_autonomous_pct``: choque autonomo a exportaciones netas, expresado
+      como % del PIB base. Recoge terminos de intercambio, demanda externa, X/M
+      directos no capturados por las palancas anteriores.
+    """
     government_spending_pct: float = 0.0
     tax_pct_of_gdp: float = 0.0
     money_supply_pct: float = 0.0
     domestic_policy_rate_bp: float = 0.0
-    investment_pct: float = 0.0
-    consumption_pct: float = 0.0
     foreign_rate_bp: float = 0.0
     risk_premium_bp: float = 0.0
     oil_price_pct: float = 0.0
-    external_demand_pct: float = 0.0
-    terms_of_trade_pct: float = 0.0
-    capital_flow_usd_m: float = 0.0
-    export_pct: float = 0.0
-    import_pct: float = 0.0
-    expected_depreciation_bp: float = 0.0
-    reserves_intervention_usd_m: float = 0.0
-    capital_mobility_scale: float = 1.0
+    nx_autonomous_pct: float = 0.0
 
 
 DEFAULT_PARAMETERS: Dict[str, float] = {
@@ -36,50 +48,37 @@ DEFAULT_PARAMETERS: Dict[str, float] = {
     "eta_export_q": 0.45,
     "eta_import_q": 0.25,
     "eta_import_y": 1.35,
-    "eta_export_y_star": 1.10,
     "eta_oil_export": 0.12,
-    "eta_terms_export": 0.15,
     "capital_flow_sensitivity_usd_m_per_pp": 800.0,
     "exchange_rate_uip_sensitivity": 0.025,
-    "exchange_rate_oil_sensitivity": -0.10,
-    "exchange_rate_terms_sensitivity": -0.08,
-    "exchange_rate_external_demand_sensitivity": -0.06,
     "exchange_rate_bp_sensitivity": 0.80,
-    "exchange_rate_capital_flow_sensitivity": 0.50,
-    "exchange_rate_reserve_sensitivity": 0.40,
 }
 
 
 SCENARIOS: Dict[str, Shock] = {
     "Base": Shock(),
-    "Expansion fiscal": Shock(government_spending_pct=5.0),
-    "Contraccion fiscal": Shock(government_spending_pct=-5.0),
-    "Aumento tasa domestica": Shock(domestic_policy_rate_bp=100.0),
-    "Reduccion tasa domestica": Shock(domestic_policy_rate_bp=-100.0),
-    "Aumento tasa Fed": Shock(foreign_rate_bp=100.0),
-    "Aumento prima de riesgo": Shock(risk_premium_bp=150.0),
-    "Caida precio del petroleo": Shock(oil_price_pct=-10.0),
-    "Aumento precio del petroleo": Shock(oil_price_pct=10.0),
-    "Demanda externa positiva": Shock(external_demand_pct=5.0),
-    "Salida subita de capitales": Shock(capital_flow_usd_m=-2500.0, risk_premium_bp=100.0),
-    "Mejora terminos de intercambio": Shock(terms_of_trade_pct=5.0),
-    "Deterioro cuenta corriente": Shock(export_pct=-5.0, import_pct=5.0),
+    "Expansion fiscal (+5% G)": Shock(government_spending_pct=5.0),
+    "Contraccion fiscal (-5% G)": Shock(government_spending_pct=-5.0),
+    "Expansion monetaria (+10% M)": Shock(money_supply_pct=10.0),
+    "Subida tasa Banrep (+100 pbs)": Shock(domestic_policy_rate_bp=100.0),
+    "Subida tasa Fed (+100 pbs)": Shock(foreign_rate_bp=100.0),
+    "Subida prima de riesgo (+150 pbs)": Shock(risk_premium_bp=150.0),
+    "Caida petroleo (-15%)": Shock(oil_price_pct=-15.0),
+    "Mejora externa (+2% PIB en NX)": Shock(nx_autonomous_pct=2.0),
+    "Deterioro externo (-2% PIB en NX)": Shock(nx_autonomous_pct=-2.0),
 }
 
 
 SCENARIO_MECHANISMS: Dict[str, str] = {
-    "Expansion fiscal": "Aumenta la demanda interna; bajo tipo de cambio flexible, el mayor ingreso eleva importaciones y puede deteriorar la cuenta corriente. Con alta movilidad de capitales el efecto sobre producto se modera por apreciacion cambiaria.",
-    "Contraccion fiscal": "Reduce demanda interna e importaciones; tiende a mejorar el balance externo, con menor presion de depreciacion, aunque reduce producto.",
-    "Aumento tasa domestica": "Eleva el diferencial de tasas a favor de Colombia y atrae capitales; el peso tiende a apreciarse en el corto plazo, todo lo demas constante.",
-    "Reduccion tasa domestica": "Reduce el atractivo relativo de activos en pesos; presiona salidas de capital o menores entradas y tiende a depreciar la TRM.",
-    "Aumento tasa Fed": "Aumenta el rendimiento externo y reduce el diferencial a favor de Colombia; tiende a depreciar el peso.",
-    "Aumento prima de riesgo": "Exige mayor retorno para mantener activos colombianos; si la tasa local no compensa, la TRM sube.",
-    "Caida precio del petroleo": "Deteriora ingresos externos de una economia exportadora de hidrocarburos; presiona depreciacion.",
-    "Aumento precio del petroleo": "Mejora ingresos externos y terminos de intercambio; reduce presiones de depreciacion.",
-    "Demanda externa positiva": "Aumenta exportaciones, mejora cuenta corriente y tiende a apreciar la moneda.",
-    "Salida subita de capitales": "Deteriora la cuenta financiera y sube la prima de riesgo; la TRM aumenta.",
-    "Mejora terminos de intercambio": "Aumenta poder de compra de exportaciones y mejora el balance externo; tiende a apreciar.",
-    "Deterioro cuenta corriente": "Menores exportaciones y mayores importaciones amplian necesidades de financiamiento externo; presiona depreciacion.",
+    "Expansion fiscal (+5% G)": "Aumenta el gasto publico. Bajo movilidad perfecta el producto no cambia (toda la presion va al tipo de cambio); bajo movilidad imperfecta el producto sube y la TRM se aprecia parcialmente.",
+    "Contraccion fiscal (-5% G)": "Reduce gasto publico. Caso simetrico al choque expansivo.",
+    "Expansion monetaria (+10% M)": "Aumenta la oferta monetaria real. La tasa cae, el peso se deprecia, las exportaciones netas suben y el producto crece. Resultado canonico de Mundell-Fleming flexible.",
+    "Subida tasa Banrep (+100 pbs)": "El Banco intenta restringir. Bajo movilidad perfecta el efecto se neutraliza por flujos de capital (la tasa vuelve al valor de UIP); bajo movilidad imperfecta el peso se aprecia y el producto cae.",
+    "Subida tasa Fed (+100 pbs)": "Aumenta el rendimiento externo. La paridad de intereses obliga a que la tasa local suba y el peso se deprecie para mantener el equilibrio externo.",
+    "Subida prima de riesgo (+150 pbs)": "Los inversionistas exigen mas retorno para mantener activos colombianos; el peso se deprecia y la tasa local sube.",
+    "Caida petroleo (-15%)": "Caen exportaciones de hidrocarburos. La cuenta corriente empeora y el peso se deprecia.",
+    "Mejora externa (+2% PIB en NX)": "Mejoras autonomas en terminos de intercambio o demanda externa. Aprecia el peso y mejora la cuenta corriente.",
+    "Deterioro externo (-2% PIB en NX)": "Caso simetrico: deterioro de terminos de intercambio o demanda externa. Depreciacion y mayor deficit externo.",
 }
 
 
@@ -153,15 +152,15 @@ def _result(b: Dict[str, float], shock_obj: Shock, y: float, rate: float,
 
 
 def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
-    """Canonical Mundell-Fleming, flexible exchange rate, perfect capital mobility.
+    """Caso canonico Mundell-Fleming flexible con movilidad perfecta de capitales.
 
-    BP curve is horizontal at r = r* + risk + expected depreciation. The central bank
-    cannot set an autonomous policy rate (any deviation from r* triggers infinite
-    capital flows), so `domestic_policy_rate_bp` is ignored in this regime. Output is
-    determined by the inverted LM. The exchange rate adjusts so that net exports
-    absorb the IS imbalance. Closed form: no iteration required.
+    BP horizontal: r = r* + risk. La autoridad monetaria local no puede fijar la
+    tasa autonomamente (cualquier desviacion es arbitrada por flujos infinitos de
+    capital), de modo que ``domestic_policy_rate_bp`` se ignora en este modo.
+    Y queda determinado por la LM invertida; e absorbe el desbalance de la IS via
+    NX. Solucion en forma cerrada.
     """
-    rate = b["rate0"] + _bp(s.foreign_rate_bp) + _bp(s.risk_premium_bp) + _bp(s.expected_depreciation_bp)
+    rate = b["rate0"] + _bp(s.foreign_rate_bp) + _bp(s.risk_premium_bp)
     rate_delta = rate - b["rate0"]
 
     y_gap_pct = (rate_delta + p["money_rate_sensitivity"] * s.money_supply_pct) / p["output_rate_sensitivity"]
@@ -170,34 +169,24 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
 
     real_rate_gap_pp = rate_delta
     tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
-    c = b["c0"] * (1.0 + _pct(s.consumption_pct)) + p["mpc"] * (y - b["y0"] - tax_change)
-    inv = b["i0"] * (1.0 + _pct(s.investment_pct) - p["investment_rate_sensitivity"] * real_rate_gap_pp)
+    c = b["c0"] + p["mpc"] * (y - b["y0"] - tax_change)
+    inv = b["i0"] * (1.0 - p["investment_rate_sensitivity"] * real_rate_gap_pp)
     g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
+    nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
+    oil_export_boost = b["x0"] * p["eta_oil_export"] * _pct(s.oil_price_pct)
     nx_required = y - c - inv - g - b["residual0"]
 
-    a_export = (
-        _pct(s.export_pct)
-        + p["eta_export_y_star"] * _pct(s.external_demand_pct)
-        + p["eta_oil_export"] * _pct(s.oil_price_pct)
-        + p["eta_terms_export"] * _pct(s.terms_of_trade_pct)
-    )
-    a_import = _pct(s.import_pct)
-
+    nx_endog_required = nx_required - nx_aut - oil_export_boost
     denominator = b["x0"] * p["eta_export_q"] + b["m0"] * p["eta_import_q"]
-    numerator = (
-        nx_required
-        - b["nx0"]
-        - b["x0"] * a_export
-        + b["m0"] * a_import
-        + b["m0"] * p["eta_import_y"] * delta_y_pct
-    )
+    numerator = nx_endog_required - b["nx0"] + b["m0"] * p["eta_import_y"] * delta_y_pct
     q_change = numerator / denominator if denominator != 0 else 0.0
 
     log_e_change = math.log1p(q_change) if q_change > -0.999 else -6.908
-    x = b["x0"] * (1.0 + a_export + p["eta_export_q"] * q_change)
-    m = b["m0"] * (1.0 + a_import + p["eta_import_y"] * delta_y_pct - p["eta_import_q"] * q_change)
+    x = b["x0"] * (1.0 + p["eta_export_q"] * q_change + p["eta_oil_export"] * _pct(s.oil_price_pct))
+    m = b["m0"] * (1.0 + p["eta_import_y"] * delta_y_pct - p["eta_import_q"] * q_change)
+    nx_total = x - m + nx_aut
 
-    nx_change_usd_m = ((x - m) - b["nx0"]) * 1000.0 / b["e0"]
+    nx_change_usd_m = (nx_total - b["nx0"]) * 1000.0 / b["e0"]
     ca = b["ca0"] + nx_change_usd_m
     ka = -ca - b["errors0"]
     bp_gap = 0.0
@@ -206,16 +195,18 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
 
 
 def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
-    """Imperfect capital mobility: BP curve has finite slope and the exchange rate
-    adjusts proportional to a residual balance-of-payments gap. The central bank
-    follows a Taylor-style rule and the policy rate can deviate from r*. Solved by
-    fixed-point iteration."""
+    """Movilidad de capitales imperfecta: la curva BP tiene pendiente positiva,
+    el banco central puede mover la tasa autonomamente y la TRM ajusta proporcional
+    a un saldo residual de balanza de pagos. Resuelto por iteracion de punto fijo.
+    """
     y = b["y0"]
     log_e_change = 0.0
     bp_gap = 0.0
     ka = b["ka0"]
     ca = b["ca0"]
     rate = b["rate0"]
+
+    nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
 
     for _ in range(12):
         y_gap_pct = (y / b["y0"] - 1.0) * 100.0
@@ -229,38 +220,22 @@ def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, 
 
         foreign_rate = b["foreign_rate0"] + _bp(s.foreign_rate_bp)
         risk = b["risk0"] + _bp(s.risk_premium_bp)
-        expected_dep_pp = _bp(s.expected_depreciation_bp)
 
-        uip_gap_pp = (foreign_rate - b["foreign_rate0"]) + (risk - b["risk0"]) + expected_dep_pp - (rate - b["rate0"])
-        direct_e_change = (
-            p["exchange_rate_uip_sensitivity"] * uip_gap_pp
-            + p["exchange_rate_oil_sensitivity"] * _pct(s.oil_price_pct)
-            + p["exchange_rate_terms_sensitivity"] * _pct(s.terms_of_trade_pct)
-            + p["exchange_rate_external_demand_sensitivity"] * _pct(s.external_demand_pct)
-            - p["exchange_rate_capital_flow_sensitivity"] * (s.capital_flow_usd_m / b["gdp_usd_m"])
-            - p["exchange_rate_reserve_sensitivity"] * (s.reserves_intervention_usd_m / b["gdp_usd_m"])
-        )
+        uip_gap_pp = (foreign_rate - b["foreign_rate0"]) + (risk - b["risk0"]) - (rate - b["rate0"])
+        direct_e_change = p["exchange_rate_uip_sensitivity"] * uip_gap_pp
 
         q_change = math.exp(log_e_change) - 1.0
         x = b["x0"] * (
             1.0
-            + _pct(s.export_pct)
             + p["eta_export_q"] * q_change
-            + p["eta_export_y_star"] * _pct(s.external_demand_pct)
             + p["eta_oil_export"] * _pct(s.oil_price_pct)
-            + p["eta_terms_export"] * _pct(s.terms_of_trade_pct)
         )
-        m = b["m0"] * (
-            1.0
-            + _pct(s.import_pct)
-            + p["eta_import_y"] * ((y / b["y0"]) - 1.0)
-            - p["eta_import_q"] * q_change
-        )
-        nx = x - m
+        m = b["m0"] * (1.0 + p["eta_import_y"] * ((y / b["y0"]) - 1.0) - p["eta_import_q"] * q_change)
+        nx = x - m + nx_aut
 
         tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
-        c = b["c0"] * (1.0 + _pct(s.consumption_pct)) + p["mpc"] * (y - b["y0"] - tax_change)
-        inv = b["i0"] * (1.0 + _pct(s.investment_pct) - p["investment_rate_sensitivity"] * real_rate_gap_pp)
+        c = b["c0"] + p["mpc"] * (y - b["y0"] - tax_change)
+        inv = b["i0"] * (1.0 - p["investment_rate_sensitivity"] * real_rate_gap_pp)
         g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
         y = c + inv + g + nx + b["residual0"]
 
@@ -268,9 +243,7 @@ def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, 
         ca = b["ca0"] + nx_change_usd_m
         ka = (
             b["ka0"]
-            + s.capital_flow_usd_m
-            + s.capital_mobility_scale
-            * p["capital_flow_sensitivity_usd_m_per_pp"]
+            + p["capital_flow_sensitivity_usd_m_per_pp"]
             * ((rate - b["rate0"]) - (foreign_rate - b["foreign_rate0"]) - (risk - b["risk0"]))
         )
         bp_gap = ca + ka + b["errors0"]
@@ -286,18 +259,20 @@ def simulate(
     parameters: Mapping[str, float] | None = None,
     mobility: str = "perfecta",
 ) -> Dict[str, float]:
-    """Static Mundell-Fleming simulation, flexible exchange rate.
+    """Simulacion estatica del modelo Mundell-Fleming flexible para Colombia.
 
-    Two modes:
-    - ``mobility="perfecta"`` (default): canonical textbook (Mankiw ch. 13).
-      Closed-form solution. Fiscal policy moves NX one-for-one and leaves Y
-      unchanged; monetary policy is effective and depreciates the peso.
-    - ``mobility="imperfecta"``: finite capital mobility with a residual
-      balance-of-payments gap that drives exchange-rate adjustment. Iterative
-      fixed-point solver. Calibration empirical for Colombia.
+    Dos modos:
+    - ``mobility="perfecta"`` (default): caso textbook (Mankiw cap. 13). La tasa
+      queda anclada por UIP, la politica fiscal NO mueve el producto (todo el
+      ajuste pasa por la TRM), la politica monetaria SI es efectiva. Solucion
+      en forma cerrada. ``domestic_policy_rate_bp`` no tiene efecto (el banco
+      central no puede desviarse de la paridad).
+    - ``mobility="imperfecta"``: capitales con movilidad finita y prima de riesgo
+      endogena. La politica fiscal mueve el producto, el Banrep puede fijar tasa
+      autonomamente y la TRM ajusta parcialmente. Resuelto por iteracion.
 
-    Amounts in COP use COP billions. Balance-of-payments amounts use USD millions.
-    Higher TRM = peso depreciation.
+    Cantidades en COP en miles de millones; saldos externos en USD millones.
+    Mayor TRM = depreciacion del peso.
     """
     if mobility not in MOBILITY_OPTIONS:
         raise ValueError(f"mobility debe ser uno de {MOBILITY_OPTIONS}, no {mobility!r}")
@@ -346,22 +321,23 @@ def validate_signs(
 
     common_tests = [
         ("Subida prima de riesgo deprecia", Shock(risk_premium_bp=100), "trm_cop_per_usd", ">", base["trm_cop_per_usd"]),
-        ("Subida tasa externa deprecia", Shock(foreign_rate_bp=100), "trm_cop_per_usd", ">", base["trm_cop_per_usd"]),
+        ("Subida tasa Fed deprecia", Shock(foreign_rate_bp=100), "trm_cop_per_usd", ">", base["trm_cop_per_usd"]),
         ("Caida petroleo deprecia", Shock(oil_price_pct=-10), "trm_cop_per_usd", ">", base["trm_cop_per_usd"]),
-        ("Mejora exportaciones aprecia", Shock(export_pct=10), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),
+        ("Mejora externa aprecia", Shock(nx_autonomous_pct=1.0), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),
         ("Expansion monetaria deprecia", Shock(money_supply_pct=10), "trm_cop_per_usd", ">", base["trm_cop_per_usd"]),
+        ("Expansion monetaria sube Y", Shock(money_supply_pct=10), "gdp_real_cop_billion", ">", base["gdp_real_cop_billion"]),
     ]
 
     if mobility == "perfecta":
         textbook_tests = [
             ("Expansion fiscal: Y constante", Shock(government_spending_pct=5), "gdp_real_cop_billion", "==", base["gdp_real_cop_billion"]),
             ("Expansion fiscal aprecia", Shock(government_spending_pct=5), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),
-            ("Expansion monetaria sube Y", Shock(money_supply_pct=10), "gdp_real_cop_billion", ">", base["gdp_real_cop_billion"]),
+            ("Tasa Banrep no tiene efecto en perfecta", Shock(domestic_policy_rate_bp=100), "trm_cop_per_usd", "==", base["trm_cop_per_usd"]),
         ]
         all_tests = common_tests + textbook_tests
     else:
         imperfect_tests = [
-            ("Subida tasa domestica aprecia", Shock(domestic_policy_rate_bp=100), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),
+            ("Subida tasa Banrep aprecia", Shock(domestic_policy_rate_bp=100), "trm_cop_per_usd", "<", base["trm_cop_per_usd"]),
             ("Expansion fiscal sube Y (movilidad imperfecta)", Shock(government_spending_pct=5), "gdp_real_cop_billion", ">", base["gdp_real_cop_billion"]),
         ]
         all_tests = common_tests + imperfect_tests

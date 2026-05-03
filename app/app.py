@@ -510,22 +510,14 @@ def comparison_table(calibration: dict[str, float], base_result: dict[str, float
 
 def active_shock_items(shock: Shock, sensitivity_scale: float) -> list[str]:
     specs = [
-        ("government_spending_pct", "Gasto publico", "%", "Aumenta demanda interna y tiende a mover IS a la derecha."),
-        ("tax_pct_of_gdp", "Impuestos", "% PIB", "Reduce ingreso disponible si sube; mueve IS a la izquierda."),
-        ("money_supply_pct", "Oferta monetaria M3", "%", "Si sube, baja la tasa compatible con LM y presiona depreciacion."),
-        ("domestic_policy_rate_bp", "Tasa domestica", "pbs", "Si sube, atrae capitales y aprecia en el corto plazo."),
-        ("investment_pct", "Inversion", "%", "Aumenta demanda agregada y mueve IS a la derecha."),
-        ("consumption_pct", "Consumo", "%", "Aumenta demanda interna y producto."),
-        ("foreign_rate_bp", "Tasa externa", "pbs", "Si sube, reduce atractivo relativo de Colombia y deprecia."),
-        ("risk_premium_bp", "Prima de riesgo", "pbs", "Si sube, exige mas retorno y presiona depreciacion."),
-        ("oil_price_pct", "Precio Brent", "%", "Para Colombia, un Brent mas alto mejora ingreso externo."),
-        ("external_demand_pct", "Demanda externa", "%", "Aumenta exportaciones y mejora cuenta corriente."),
-        ("terms_of_trade_pct", "Terminos de intercambio", "%", "Mejora ingresos externos y reduce presion de TRM."),
-        ("export_pct", "Exportaciones exogenas", "%", "Mejora cuenta corriente."),
-        ("import_pct", "Importaciones exogenas", "%", "Deteriora cuenta corriente si sube."),
-        ("expected_depreciation_bp", "Depreciacion esperada", "pbs", "Eleva presion cambiaria hoy via UIP."),
-        ("capital_flow_usd_m", "Flujos de capital", "USD m", "Entradas aprecian; salidas deprecian."),
-        ("reserves_intervention_usd_m", "Intervencion reservas", "USD m", "Venta de reservas reduce presion depreciatoria en la regla."),
+        ("government_spending_pct", "Gasto publico (G)", "%", "Aumenta demanda interna y mueve IS a la derecha."),
+        ("tax_pct_of_gdp", "Impuestos (T)", "% PIB", "Si sube, reduce ingreso disponible y mueve IS a la izquierda."),
+        ("money_supply_pct", "Oferta monetaria M3", "%", "Expansion baja la tasa compatible con LM y deprecia."),
+        ("domestic_policy_rate_bp", "Tasa Banrep", "pbs", "Bajo movilidad imperfecta atrae capitales y aprecia; bajo perfecta queda anulada por UIP."),
+        ("foreign_rate_bp", "Tasa Fed", "pbs", "Sube el rendimiento externo y deprecia el peso."),
+        ("risk_premium_bp", "Prima de riesgo Colombia", "pbs", "Mayor prima exige mas retorno y deprecia."),
+        ("oil_price_pct", "Precio Brent", "%", "Mayor petroleo mejora exportaciones colombianas y aprecia."),
+        ("nx_autonomous_pct", "NX autonomo", "% PIB", "Choque exogeno a exportaciones netas (terminos de intercambio, demanda externa, X/M directos)."),
     ]
     items = []
     for field, label, unit, note in specs:
@@ -534,7 +526,7 @@ def active_shock_items(shock: Shock, sensitivity_scale: float) -> list[str]:
             items.append(f"<li><strong>{label}:</strong> {fmt_delta(value, 1)} {unit}. {note}</li>")
     if abs(sensitivity_scale - 1.0) > 1e-9:
         items.append(
-            f"<li><strong>Sensibilidad cambiaria:</strong> {fmt(sensitivity_scale, 2)}x. Amplifica la reaccion de la TRM a shocks financieros y externos.</li>"
+            f"<li><strong>Sensibilidad cambiaria:</strong> {fmt(sensitivity_scale, 2)}x. Amplifica la reaccion de la TRM (solo modo imperfecta).</li>"
         )
     return items
 
@@ -602,13 +594,7 @@ def control_slider(label: str, help_text: str, *args, **kwargs):
 
 
 def scale_shock(shock: Shock, factor: float) -> Shock:
-    values = {
-        field: float(getattr(shock, field)) * factor
-        for field in Shock.__dataclass_fields__
-        if field != "capital_mobility_scale"
-    }
-    values["capital_mobility_scale"] = shock.capital_mobility_scale
-    return Shock(**values)
+    return Shock(**{field: float(getattr(shock, field)) * factor for field in Shock.__dataclass_fields__})
 
 
 calibration, params, scenarios_df, dictionary_df, sources_df = load_data()
@@ -711,179 +697,70 @@ with left:
         )
     else:
         st.markdown(
-            "<div class='mini-label'>Modo experto: modifica cada bloque. Los paneles arrancan cerrados para evitar ruido visual.</div>",
+            "<div class='mini-label'>Modo experto: 8 palancas con respaldo en Mankiw cap. 13 y datos colombianos. Bloques arrancan cerrados.</div>",
             unsafe_allow_html=True,
         )
-        with st.expander("Demanda domestica", expanded=False):
+        with st.expander("Politica fiscal", expanded=False):
             government_spending_pct = control_slider(
-                "Gasto publico (%)",
+                "Gasto publico G (%)",
                 "Cambio porcentual del consumo publico real. Empuja la curva IS.",
-                -50.0,
-                50.0,
-                selected.government_spending_pct,
-                1.0,
+                -50.0, 50.0, selected.government_spending_pct, 1.0,
             )
             tax_pct_of_gdp = control_slider(
-                "Impuestos (% del PIB)",
+                "Impuestos T (% del PIB)",
                 "Choque fiscal como porcentaje del PIB base. Al subir, reduce ingreso disponible.",
-                -10.0,
-                10.0,
-                selected.tax_pct_of_gdp,
-                0.25,
-            )
-            investment_pct = control_slider(
-                "Inversion autonoma (%)",
-                "Choque directo sobre formacion bruta de capital. Mueve la IS.",
-                -60.0,
-                60.0,
-                selected.investment_pct,
-                1.0,
-            )
-            consumption_pct = control_slider(
-                "Consumo autonomo (%)",
-                "Choque directo sobre consumo privado, antes del multiplicador.",
-                -40.0,
-                40.0,
-                selected.consumption_pct,
-                1.0,
+                -10.0, 10.0, selected.tax_pct_of_gdp, 0.25,
             )
 
-        with st.expander("Monetario y tasas", expanded=False):
+        with st.expander("Politica monetaria", expanded=False):
             money_supply_pct = control_slider(
                 "Oferta monetaria M3 (%)",
-                "Expansion monetaria: desplaza LM hacia abajo/derecha y tiende a depreciar bajo tipo de cambio flexible.",
-                -80.0,
-                100.0,
-                selected.money_supply_pct,
-                1.0,
+                "Expansion monetaria: en flexible deprecia y sube producto. Mecanismo central de Mundell-Fleming.",
+                -50.0, 50.0, selected.money_supply_pct, 1.0,
             )
             domestic_policy_rate_bp = control_slider(
-                "Tasa politica domestica (pbs)",
-                "100 pbs = 1 punto porcentual. Subir la tasa atrae capitales y tiende a apreciar en el corto plazo.",
-                -1000.0,
-                1200.0,
-                selected.domestic_policy_rate_bp,
-                25.0,
+                "Tasa Banrep (pbs)",
+                "100 pbs = 1 punto porcentual. En perfecta queda anulada por la paridad de intereses; en imperfecta aprecia/deprecia segun el signo.",
+                -500.0, 700.0, selected.domestic_policy_rate_bp, 25.0,
             )
 
-        with st.expander("Sector externo real", expanded=False):
-            oil_price_pct = control_slider(
-                "Precio Brent (%)",
-                "Para Colombia, un mayor precio del petroleo suele mejorar ingresos externos y reducir presion de TRM.",
-                -80.0,
-                100.0,
-                selected.oil_price_pct,
-                2.0,
-            )
-            external_demand_pct = control_slider(
-                "Demanda externa (%)",
-                "Crecimiento de socios comerciales/demanda global; eleva exportaciones.",
-                -25.0,
-                25.0,
-                selected.external_demand_pct,
-                0.5,
-            )
-            terms_of_trade_pct = control_slider(
-                "Terminos de intercambio (%)",
-                "Mejora si el precio relativo de exportaciones sube frente a importaciones.",
-                -40.0,
-                40.0,
-                selected.terms_of_trade_pct,
-                1.0,
-            )
-            export_pct = control_slider(
-                "Exportaciones exogenas (%)",
-                "Choque adicional de ventas externas no explicado por TRM o demanda externa.",
-                -50.0,
-                50.0,
-                selected.export_pct,
-                1.0,
-            )
-            import_pct = control_slider(
-                "Importaciones exogenas (%)",
-                "Choque adicional de compras externas. Si sube, presiona cuenta corriente.",
-                -50.0,
-                50.0,
-                selected.import_pct,
-                1.0,
-            )
-
-        with st.expander("Financiero-cambiario", expanded=False):
+        with st.expander("Choques externos", expanded=False):
             foreign_rate_bp = control_slider(
-                "Tasa externa Fed (pbs)",
-                "Sube el retorno externo. Todo lo demas constante, presiona depreciacion.",
-                -500.0,
-                700.0,
-                selected.foreign_rate_bp,
-                25.0,
+                "Tasa Fed (pbs)",
+                "Sube el rendimiento externo. Bajo UIP, deprecia el peso.",
+                -500.0, 700.0, selected.foreign_rate_bp, 25.0,
             )
             risk_premium_bp = control_slider(
                 "Prima de riesgo Colombia (pbs)",
-                "Mayor prima exige mayor retorno para mantener activos colombianos; presiona TRM al alza.",
-                -500.0,
-                1000.0,
-                selected.risk_premium_bp,
-                25.0,
+                "Spread del CDS/EMBI Colombia vs Treasury. Mayor riesgo deprecia.",
+                -300.0, 700.0, selected.risk_premium_bp, 25.0,
             )
-            expected_depreciation_bp = control_slider(
-                "Depreciacion esperada (pbs)",
-                "Expectativa de depreciacion incorporada en la condicion UIP ajustada por riesgo.",
-                -1500.0,
-                1500.0,
-                selected.expected_depreciation_bp,
-                25.0,
+            oil_price_pct = control_slider(
+                "Precio Brent (%)",
+                "Mayor Brent = mayores exportaciones colombianas (eta_oil_export aplicable).",
+                -60.0, 60.0, selected.oil_price_pct, 2.0,
             )
-            capital_flow_usd_m = control_slider(
-                "Flujos de capital (USD m)",
-                "Entradas netas positivas aprecian; salidas netas deprecian.",
-                -20000.0,
-                20000.0,
-                selected.capital_flow_usd_m,
-                250.0,
+            nx_autonomous_pct = control_slider(
+                "NX autonomo (% del PIB)",
+                "Choque autonomo a exportaciones netas. Resume terminos de intercambio, demanda externa y choques directos a X/M.",
+                -5.0, 5.0, selected.nx_autonomous_pct, 0.25,
             )
-            reserves_intervention_usd_m = control_slider(
-                "Intervencion reservas (USD m)",
-                "Proxy de intervencion cambiaria. Valor positivo reduce presion depreciatoria en la regla.",
-                -15000.0,
-                15000.0,
-                selected.reserves_intervention_usd_m,
-                250.0,
-            )
-            capital_mobility_scale = control_slider(
-                "Movilidad de capitales",
-                "0 = baja movilidad; 1 = calibracion central; valores altos hacen mas sensible la cuenta financiera.",
-                0.0,
-                4.0,
-                selected.capital_mobility_scale,
-                0.1,
-            )
-            exchange_sensitivity_scale = control_slider(
-                "Sensibilidad cambiaria",
-                "Multiplica la respuesta de TRM a tasas, riesgo, petroleo, balance externo y reservas. Util para sensibilidad.",
-                0.25,
-                5.0,
-                1.0,
-                0.05,
-            )
+
+        exchange_sensitivity_scale = control_slider(
+            "Sensibilidad cambiaria (solo imperfecta)",
+            "Multiplica la respuesta de TRM al gap de UIP y al residual de balanza de pagos. Sin efecto en perfecta.",
+            0.25, 3.0, 1.0, 0.05,
+        )
 
         shock = Shock(
             government_spending_pct=government_spending_pct,
             tax_pct_of_gdp=tax_pct_of_gdp,
             money_supply_pct=money_supply_pct,
             domestic_policy_rate_bp=domestic_policy_rate_bp,
-            investment_pct=investment_pct,
-            consumption_pct=consumption_pct,
             foreign_rate_bp=foreign_rate_bp,
             risk_premium_bp=risk_premium_bp,
             oil_price_pct=oil_price_pct,
-            external_demand_pct=external_demand_pct,
-            terms_of_trade_pct=terms_of_trade_pct,
-            capital_flow_usd_m=capital_flow_usd_m,
-            export_pct=export_pct,
-            import_pct=import_pct,
-            expected_depreciation_bp=expected_depreciation_bp,
-            reserves_intervention_usd_m=reserves_intervention_usd_m,
-            capital_mobility_scale=capital_mobility_scale,
+            nx_autonomous_pct=nx_autonomous_pct,
         )
 
 scenario_params = curves.scaled_exchange_params(params, exchange_sensitivity_scale)

@@ -47,16 +47,9 @@ def base_components(calibration: Mapping[str, float]) -> dict[str, float]:
 
 def scaled_exchange_params(params: Mapping[str, float], scale: float) -> dict[str, float]:
     out = dict(params)
-    for key in [
-        "exchange_rate_uip_sensitivity",
-        "exchange_rate_oil_sensitivity",
-        "exchange_rate_terms_sensitivity",
-        "exchange_rate_external_demand_sensitivity",
-        "exchange_rate_bp_sensitivity",
-        "exchange_rate_capital_flow_sensitivity",
-        "exchange_rate_reserve_sensitivity",
-    ]:
-        out[key] = out[key] * scale
+    for key in ("exchange_rate_uip_sensitivity", "exchange_rate_bp_sensitivity"):
+        if key in out:
+            out[key] = out[key] * scale
     return out
 
 
@@ -67,23 +60,20 @@ def external_trade(
     y: float,
     trm_change: float,
 ) -> tuple[float, float, float]:
+    """Devuelve (X, M, NX) para un nivel de producto y tipo de cambio dados."""
     c = base_components(calibration)
-    y0 = c["y0"]
+    nx_aut = pct(shock_value(shock, "nx_autonomous_pct")) * c["y0"]
     x = c["x0"] * (
         1.0
-        + pct(shock_value(shock, "export_pct"))
         + params["eta_export_q"] * trm_change
-        + params["eta_export_y_star"] * pct(shock_value(shock, "external_demand_pct"))
         + params["eta_oil_export"] * pct(shock_value(shock, "oil_price_pct"))
-        + params["eta_terms_export"] * pct(shock_value(shock, "terms_of_trade_pct"))
     )
     m = c["m0"] * (
         1.0
-        + pct(shock_value(shock, "import_pct"))
-        + params["eta_import_y"] * ((y / y0) - 1.0)
+        + params["eta_import_y"] * ((y / c["y0"]) - 1.0)
         - params["eta_import_q"] * trm_change
     )
-    return x, m, x - m
+    return x, m, x - m + nx_aut
 
 
 def is_rate_for_gap(
@@ -93,21 +83,27 @@ def is_rate_for_gap(
     result: Mapping[str, float],
     gap_pct: float,
 ) -> float:
+    """Tasa que mantiene equilibrio en el bloque IS para un valor dado de la brecha."""
     c = base_components(calibration)
     y = c["y0"] * (1.0 + pct(gap_pct))
     trm_change = pct(float(result["trm_change_pct"]))
     _, _, nx = external_trade(calibration, shock, params, y, trm_change)
     tax_change = pct(shock_value(shock, "tax_pct_of_gdp")) * c["y0"]
-    consumption = c["c0"] * (1.0 + pct(shock_value(shock, "consumption_pct")))
-    consumption += params["mpc"] * (y - c["y0"] - tax_change)
-    investment_no_rate = c["inv0"] * (1.0 + pct(shock_value(shock, "investment_pct")))
+    consumption = c["c0"] + params["mpc"] * (y - c["y0"] - tax_change)
+    investment_no_rate = c["inv0"]
     government = c["g0"] * (1.0 + pct(shock_value(shock, "government_spending_pct")))
     demand_without_rate = consumption + investment_no_rate + government + nx + c["residual0"]
     denominator = max(c["inv0"] * params["investment_rate_sensitivity"], 1.0)
     return c["rate0"] + (demand_without_rate - y) / denominator
 
 
-def lm_rate_for_gap(calibration: Mapping[str, float], shock: Shock, params: Mapping[str, float], gap_pct: float) -> float:
+def lm_rate_for_gap(
+    calibration: Mapping[str, float],
+    shock: Shock,
+    params: Mapping[str, float],
+    gap_pct: float,
+) -> float:
+    """Tasa que mantiene equilibrio en el bloque monetario para una brecha dada."""
     c = base_components(calibration)
     return (
         c["rate0"]
@@ -124,17 +120,17 @@ def bp_rate_for_gap(
     result: Mapping[str, float],
     gap_pct: float,
 ) -> float:
+    """Tasa que mantiene BP=0 (movilidad imperfecta) para una brecha dada."""
     c = base_components(calibration)
     y = c["y0"] * (1.0 + pct(gap_pct))
     trm_change = pct(float(result["trm_change_pct"]))
     _, _, nx = external_trade(calibration, shock, params, y, trm_change)
     nx_change_usd_m = (nx - c["nx0"]) * 1000.0 / c["e0"]
     current_account = c["ca0"] + nx_change_usd_m
-    capital_mobility = max(shock_value(shock, "capital_mobility_scale"), 0.05)
-    phi = max(capital_mobility * params["capital_flow_sensitivity_usd_m_per_pp"], 50.0)
+    phi = max(params["capital_flow_sensitivity_usd_m_per_pp"], 50.0)
     foreign_delta = bp(shock_value(shock, "foreign_rate_bp"))
     risk_delta = bp(shock_value(shock, "risk_premium_bp"))
-    autonomous_flows = c["ka0"] + shock_value(shock, "capital_flow_usd_m") + c["errors0"]
+    autonomous_flows = c["ka0"] + c["errors0"]
     return c["rate0"] + foreign_delta + risk_delta - (current_account + autonomous_flows) / phi
 
 
@@ -146,6 +142,7 @@ def bp_gap_for_trm(
     rate: float,
     trm: float,
 ) -> float:
+    """Brecha residual de balanza de pagos para una TRM dada (movilidad imperfecta)."""
     c = base_components(calibration)
     trm_change = (trm / c["e0"]) - 1.0
     _, _, nx = external_trade(calibration, shock, params, y, trm_change)
@@ -154,8 +151,7 @@ def bp_gap_for_trm(
     foreign_delta = bp(shock_value(shock, "foreign_rate_bp"))
     risk_delta = bp(shock_value(shock, "risk_premium_bp"))
     capital_gap = (rate - c["rate0"]) - foreign_delta - risk_delta
-    capital_account = c["ka0"] + shock_value(shock, "capital_flow_usd_m")
-    capital_account += shock_value(shock, "capital_mobility_scale") * params["capital_flow_sensitivity_usd_m_per_pp"] * capital_gap
+    capital_account = c["ka0"] + params["capital_flow_sensitivity_usd_m_per_pp"] * capital_gap
     return current_account + capital_account + c["errors0"]
 
 
@@ -177,11 +173,10 @@ def curve_data(
     sim_result: Mapping[str, float],
     mobility: str = "perfecta",
 ) -> dict[str, object]:
-    """Build IS, LM and BP=0 curve data on the (output gap, rate) plane.
+    """Construye los datos de curvas IS, LM y BP=0 sobre el plano (brecha, tasa).
 
-    Under ``mobility="perfecta"`` the BP=0 curve is horizontal at the UIP rate
-    (canonical MF). Under ``mobility="imperfecta"`` it is upward-sloping,
-    reflecting finite capital mobility.
+    En ``mobility="perfecta"`` la BP=0 es horizontal en la tasa de UIP.
+    En ``mobility="imperfecta"`` tiene pendiente positiva.
     """
     gaps = gap_grid(base_result, sim_result)
     bp_base_horizontal = float(base_result["policy_rate_pct"])
@@ -267,20 +262,17 @@ def trm_contribution_rows(
     base_result: Mapping[str, float],
     sim_result: Mapping[str, float],
 ) -> pd.DataFrame:
+    """Descomposicion aproximada del cambio de TRM en factores explicativos."""
     c = base_components(calibration)
     foreign_delta = bp(shock_value(shock, "foreign_rate_bp"))
     risk_delta = bp(shock_value(shock, "risk_premium_bp"))
-    expected_delta = bp(shock_value(shock, "expected_depreciation_bp"))
     rate_delta = sim_result["policy_rate_pct"] - base_result["policy_rate_pct"]
-    uip_gap = foreign_delta + risk_delta + expected_delta - rate_delta
+    uip_gap = foreign_delta + risk_delta - rate_delta
     contributions = {
-        "Diferencial tasas/riesgo": scenario_params["exchange_rate_uip_sensitivity"] * uip_gap * 100.0,
-        "Petroleo": scenario_params["exchange_rate_oil_sensitivity"] * pct(shock_value(shock, "oil_price_pct")) * 100.0,
-        "Terminos intercambio": scenario_params["exchange_rate_terms_sensitivity"] * pct(shock_value(shock, "terms_of_trade_pct")) * 100.0,
-        "Demanda externa": scenario_params["exchange_rate_external_demand_sensitivity"] * pct(shock_value(shock, "external_demand_pct")) * 100.0,
-        "Flujos capital directos": -scenario_params["exchange_rate_capital_flow_sensitivity"] * (shock_value(shock, "capital_flow_usd_m") / c["gdp_usd_m"]) * 100.0,
-        "Reservas": -scenario_params["exchange_rate_reserve_sensitivity"] * (shock_value(shock, "reserves_intervention_usd_m") / c["gdp_usd_m"]) * 100.0,
-        "Balance externo": -scenario_params["exchange_rate_bp_sensitivity"]
+        "Diferencial tasas/riesgo (UIP)": scenario_params.get("exchange_rate_uip_sensitivity", 0.0) * uip_gap * 100.0,
+        "Petroleo (efecto X)": -100.0 * scenario_params["eta_oil_export"] * pct(shock_value(shock, "oil_price_pct")),
+        "NX autonomo": -100.0 * pct(shock_value(shock, "nx_autonomous_pct")),
+        "Balance externo": -scenario_params.get("exchange_rate_bp_sensitivity", 0.0)
         * ((sim_result["balance_of_payments_gap_usd_m"] - base_result["balance_of_payments_gap_usd_m"]) / c["gdp_usd_m"])
         * 100.0,
     }
@@ -302,7 +294,7 @@ def comparison_rows(calibration: Mapping[str, float], base_result: Mapping[str, 
             "Nivel trimestral a precios constantes de 2015; no es PIB anual.",
         ),
         ("Brecha del producto", "%", base_result["output_gap_pct"], sim_result["output_gap_pct"], "Cambio porcentual frente al nivel base calibrado."),
-        ("Tasa domestica", "%", base_result["policy_rate_pct"], sim_result["policy_rate_pct"], "Tasa relevante del bloque monetario; incorpora regla simplificada."),
+        ("Tasa domestica", "%", base_result["policy_rate_pct"], sim_result["policy_rate_pct"], "Tasa relevante del bloque monetario; en perfecta queda anclada por UIP."),
         ("Cuenta corriente", "USD m", base_result["current_account_usd_m"], sim_result["current_account_usd_m"], "Mejora si aumenta el saldo externo corriente."),
         (
             "Cuenta financiera",
