@@ -71,8 +71,8 @@ def is_star_trm(
     rate_delta = rate - c["rate0"]
 
     tax_change = (shock.tax_pct_of_gdp / 100.0) * c["y0"]
-    cons = c["c0"] + params["mpc"] * (y_value - c["y0"] - tax_change)
-    inv = c["i0"] * (1.0 - params["investment_rate_sensitivity"] * rate_delta)
+    cons = c["c0"] * (1.0 + shock.consumption_autonomous_pct / 100.0) + params["mpc"] * (y_value - c["y0"] - tax_change)
+    inv = c["i0"] * (1.0 + shock.investment_autonomous_pct / 100.0 - params["investment_rate_sensitivity"] * rate_delta)
     gov = c["g0"] * (1.0 + shock.government_spending_pct / 100.0)
     nx_aut = (shock.nx_autonomous_pct / 100.0) * c["y0"]
     oil_boost = c["x0"] * params["eta_oil_export"] * (shock.oil_price_pct / 100.0)

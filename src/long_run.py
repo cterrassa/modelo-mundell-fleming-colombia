@@ -67,8 +67,8 @@ def simulate_long_run(
     delta_y_pct = 0.0
 
     tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
-    c = b["c0"] + params["mpc"] * (-tax_change)
-    inv = b["i0"] * (1.0 - params["investment_rate_sensitivity"] * rate_delta)
+    c = b["c0"] * (1.0 + _pct(s.consumption_autonomous_pct)) + params["mpc"] * (-tax_change)
+    inv = b["i0"] * (1.0 + _pct(s.investment_autonomous_pct) - params["investment_rate_sensitivity"] * rate_delta)
     g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
     nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
     oil_export_boost = b["x0"] * params["eta_oil_export"] * _pct(s.oil_price_pct)

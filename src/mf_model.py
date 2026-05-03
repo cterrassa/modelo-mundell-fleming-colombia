@@ -11,25 +11,31 @@ import pandas as pd
 class Shock:
     """Shocks del modelo Mundell-Fleming para Colombia.
 
-    Ocho dimensiones, todas con respaldo en Mankiw cap. 13 o relevantes para Colombia.
+    Diez dimensiones, todas con respaldo en el curso UniAndes (Vallejo) y/o
+    relevantes para el caso colombiano.
+
+    Choques autonomos a la IS (notacion del curso entre parentesis):
+    - ``consumption_autonomous_pct`` (a): choque al consumo autonomo C0, en %.
+    - ``investment_autonomous_pct`` (h): choque a la inversion autonoma I0, en %.
+    - ``nx_autonomous_pct`` (z, bm consolidados): choque autonomo a NX como
+      % del PIB. Captura exportaciones autonomas, terminos de intercambio,
+      barreras a importaciones y demanda externa.
 
     Politica domestica:
-    - ``government_spending_pct``: choque a G como % del G base.
-    - ``tax_pct_of_gdp``: choque a impuestos como % del PIB base.
-    - ``money_supply_pct``: choque a M3 como % de la base monetaria.
-    - ``domestic_policy_rate_bp``: choque a la tasa Banrep, en puntos basicos.
-      Bajo movilidad perfecta queda anulado por la paridad de intereses.
+    - ``government_spending_pct`` (G): choque a G como % del G base.
+    - ``tax_pct_of_gdp`` (T): choque a impuestos como % del PIB base.
+    - ``money_supply_pct`` (M): choque a M3 como % de la base monetaria.
+    - ``domestic_policy_rate_bp``: choque a la tasa Banrep en puntos basicos.
+      Bajo movilidad perfecta queda anulado por la paridad de intereses (no
+      esta en el modelo MF puro del curso, util para el caso imperfecta).
 
     Externas:
-    - ``foreign_rate_bp``: choque a la tasa externa (Fed funds), en puntos basicos.
-    - ``risk_premium_bp``: choque a la prima de riesgo Colombia, en puntos basicos.
-    - ``oil_price_pct``: choque al precio del petroleo, en %. Para Colombia
-      Brent y exportaciones estan correlacionados; ``eta_oil_export`` calibra la
-      transmision a exportaciones.
-    - ``nx_autonomous_pct``: choque autonomo a exportaciones netas, expresado
-      como % del PIB base. Recoge terminos de intercambio, demanda externa, X/M
-      directos no capturados por las palancas anteriores.
+    - ``foreign_rate_bp`` (r*): choque a la tasa externa Fed funds, en pbs.
+    - ``risk_premium_bp``: prima de riesgo Colombia, en pbs (extension Colombia).
+    - ``oil_price_pct``: precio del petroleo Brent, en % (extension Colombia).
     """
+    consumption_autonomous_pct: float = 0.0
+    investment_autonomous_pct: float = 0.0
     government_spending_pct: float = 0.0
     tax_pct_of_gdp: float = 0.0
     money_supply_pct: float = 0.0
@@ -133,7 +139,8 @@ def _baseline(calibration: Mapping[str, float]) -> Dict[str, float]:
 def _result(b: Dict[str, float], shock_obj: Shock, y: float, rate: float,
             x: float, m: float, ca: float, ka: float, bp_gap: float,
             log_e_change: float, c_priv: float | None = None,
-            inv: float | None = None, g_real: float | None = None) -> Dict[str, float]:
+            inv: float | None = None, g_real: float | None = None,
+            nx_real: float | None = None) -> Dict[str, float]:
     e_change = math.exp(log_e_change) - 1.0
     if c_priv is None:
         c_priv = b["c0"]
@@ -141,6 +148,8 @@ def _result(b: Dict[str, float], shock_obj: Shock, y: float, rate: float,
         inv = b["i0"]
     if g_real is None:
         g_real = b["g0"]
+    if nx_real is None:
+        nx_real = x - m
     return {
         "trm_cop_per_usd": b["e0"] * math.exp(log_e_change),
         "trm_change_pct": e_change * 100.0,
@@ -152,7 +161,7 @@ def _result(b: Dict[str, float], shock_obj: Shock, y: float, rate: float,
         "government_consumption_real_cop_billion": g_real,
         "exports_real_cop_billion": x,
         "imports_real_cop_billion": m,
-        "net_exports_real_cop_billion": x - m,
+        "net_exports_real_cop_billion": nx_real,
         "current_account_usd_m": ca,
         "financial_account_inflow_usd_m": ka,
         "balance_of_payments_gap_usd_m": bp_gap,
@@ -179,8 +188,8 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
 
     real_rate_gap_pp = rate_delta
     tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
-    c = b["c0"] + p["mpc"] * (y - b["y0"] - tax_change)
-    inv = b["i0"] * (1.0 - p["investment_rate_sensitivity"] * real_rate_gap_pp)
+    c = b["c0"] * (1.0 + _pct(s.consumption_autonomous_pct)) + p["mpc"] * (y - b["y0"] - tax_change)
+    inv = b["i0"] * (1.0 + _pct(s.investment_autonomous_pct) - p["investment_rate_sensitivity"] * real_rate_gap_pp)
     g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
     nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
     oil_export_boost = b["x0"] * p["eta_oil_export"] * _pct(s.oil_price_pct)
@@ -201,7 +210,7 @@ def _simulate_perfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, fl
     ka = -ca - b["errors0"]
     bp_gap = 0.0
 
-    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g)
+    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g, nx_real=nx_total)
 
 
 def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, float]) -> Dict[str, float]:
@@ -244,8 +253,8 @@ def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, 
         nx = x - m + nx_aut
 
         tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
-        c = b["c0"] + p["mpc"] * (y - b["y0"] - tax_change)
-        inv = b["i0"] * (1.0 - p["investment_rate_sensitivity"] * real_rate_gap_pp)
+        c = b["c0"] * (1.0 + _pct(s.consumption_autonomous_pct)) + p["mpc"] * (y - b["y0"] - tax_change)
+        inv = b["i0"] * (1.0 + _pct(s.investment_autonomous_pct) - p["investment_rate_sensitivity"] * real_rate_gap_pp)
         g = b["g0"] * (1.0 + _pct(s.government_spending_pct))
         y = c + inv + g + nx + b["residual0"]
 
@@ -260,7 +269,7 @@ def _simulate_imperfect_mobility(b: Dict[str, float], s: Shock, p: Mapping[str, 
 
         log_e_change = direct_e_change - p["exchange_rate_bp_sensitivity"] * (bp_gap / b["gdp_usd_m"])
 
-    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g)
+    return _result(b, s, y, rate, x, m, ca, ka, bp_gap, log_e_change, c_priv=c, inv=inv, g_real=g, nx_real=nx)
 
 
 def simulate(

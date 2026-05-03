@@ -231,14 +231,16 @@ def comparison_table(calibration: dict[str, float], base_result: dict[str, float
 
 def active_shock_items(shock: Shock) -> list[str]:
     specs = [
-        ("government_spending_pct", "Gasto publico (G)", "%", "Aumenta demanda interna y mueve IS a la derecha."),
-        ("tax_pct_of_gdp", "Impuestos (T)", "% PIB", "Si sube, reduce ingreso disponible y mueve IS a la izquierda."),
-        ("money_supply_pct", "Oferta monetaria M3", "%", "Expansion baja la tasa compatible con LM y deprecia."),
+        ("consumption_autonomous_pct", "Consumo autonomo (a)", "%", "Choque a C0; en perfecta aprecia el peso (IS izquierda en plano (Y, e))."),
+        ("investment_autonomous_pct", "Inversion autonoma (h)", "%", "Choque a I0; mismo signo que choque a consumo autonomo."),
+        ("government_spending_pct", "Gasto publico (G)", "%", "Aumenta demanda interna y desplaza IS\\* (en plano (Y, e), aprecia el peso)."),
+        ("tax_pct_of_gdp", "Impuestos (T)", "% PIB", "Si sube, reduce ingreso disponible y desplaza IS\\* a la izquierda (deprecia)."),
+        ("money_supply_pct", "Oferta monetaria M3", "%", "Expansion mueve LM\\* a la derecha (Y_LM mayor); en perfecta deprecia."),
         ("domestic_policy_rate_bp", "Tasa Banrep", "pbs", "Bajo movilidad imperfecta atrae capitales y aprecia; bajo perfecta queda anulada por UIP."),
-        ("foreign_rate_bp", "Tasa Fed", "pbs", "Sube el rendimiento externo y deprecia el peso."),
+        ("foreign_rate_bp", "Tasa Fed (r*)", "pbs", "Sube r* y por UIP la tasa local; LM se mueve, peso deprecia."),
         ("risk_premium_bp", "Prima de riesgo Colombia", "pbs", "Mayor prima exige mas retorno y deprecia."),
-        ("oil_price_pct", "Precio Brent", "%", "Mayor petroleo mejora exportaciones colombianas y aprecia."),
-        ("nx_autonomous_pct", "NX autonomo", "% PIB", "Choque exogeno a exportaciones netas (terminos de intercambio, demanda externa, X/M directos)."),
+        ("oil_price_pct", "Precio Brent", "%", "Mayor petroleo mejora exportaciones y aprecia el peso."),
+        ("nx_autonomous_pct", "NX autonomo (z, bm)", "% PIB", "Choque exogeno a NX: exportaciones autonomas, terminos de intercambio, barreras a importaciones, demanda externa."),
     ]
     items = []
     for field, label, unit, note in specs:
@@ -387,7 +389,19 @@ with left:
             "Para modificar una variable especifica, cambia a modo experto."
         )
     else:
-        st.caption("Modo experto: 8 palancas con respaldo en Mankiw cap. 13 y datos colombianos. Bloques arrancan cerrados.")
+        st.caption("Modo experto: 10 palancas alineadas al curso (Mankiw cap. 13 + Vallejo UniAndes) y datos colombianos.")
+        with st.expander("Choques autonomos a la IS (a, h)", expanded=False):
+            consumption_autonomous_pct = control_slider(
+                "Consumo autonomo a (%)",
+                "Choque a C0 (consumo autonomo). En el curso = a. Mueve la IS.",
+                -30.0, 30.0, selected.consumption_autonomous_pct, 1.0,
+            )
+            investment_autonomous_pct = control_slider(
+                "Inversion autonoma h (%)",
+                "Choque a I0 (inversion autonoma). En el curso = h. Mueve la IS.",
+                -40.0, 40.0, selected.investment_autonomous_pct, 1.0,
+            )
+
         with st.expander("Politica fiscal", expanded=False):
             government_spending_pct = control_slider(
                 "Gasto publico G (%)",
@@ -435,6 +449,8 @@ with left:
             )
 
         shock = Shock(
+            consumption_autonomous_pct=consumption_autonomous_pct,
+            investment_autonomous_pct=investment_autonomous_pct,
             government_spending_pct=government_spending_pct,
             tax_pct_of_gdp=tax_pct_of_gdp,
             money_supply_pct=money_supply_pct,
