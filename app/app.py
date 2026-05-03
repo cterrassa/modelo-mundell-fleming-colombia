@@ -15,6 +15,8 @@ sys.path.insert(0, str(SRC))
 from mf_model import MOBILITY_OPTIONS, SCENARIOS, SCENARIO_MECHANISMS, Shock, simulate  # noqa: E402
 import mf_curves as curves  # noqa: E402
 import live_data  # noqa: E402
+from mf_projection import PROJECTION_SCENARIOS, project_scenario  # noqa: E402
+from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
 
 
 MOBILITY_LABELS = {
@@ -889,8 +891,8 @@ with right:
         unsafe_allow_html=True,
     )
 
-    tab_summary, tab_curves, tab_compare, tab_data = st.tabs(
-        ["Impacto", "Curvas del modelo", "Base vs simulado", "Datos y supuestos"]
+    tab_summary, tab_curves, tab_compare, tab_table, tab_data = st.tabs(
+        ["Impacto", "Curvas del modelo", "Base vs simulado", "Cuentas nacionales y proyecciones", "Datos y supuestos"]
     )
 
     with tab_summary:
@@ -965,6 +967,59 @@ with right:
         for col in numeric_cols:
             scenario_view[col] = scenario_view[col].map(lambda x: fmt(x, 2))
         st.dataframe(scenario_view, width="stretch", hide_index=True)
+
+    with tab_table:
+        st.subheader("Cuentas nacionales y proyecciones a 5 anios")
+        st.markdown(
+            "<div class='section-caption'>5 anios historicos (DANE) + 5 anios proyectados (modelo). "
+            "Los flujos historicos suman los 4 trimestres del anio; las proyecciones aplican el % de cambio del modelo "
+            "al ultimo anio observado para evitar saltos artificiales por estacionalidad. Sin Monte Carlo: cada anio "
+            "es solucion deterministica del modelo bajo el escenario elegido.</div>",
+            unsafe_allow_html=True,
+        )
+
+        scenario_keys = list(PROJECTION_SCENARIOS.keys())
+        proj_scenario_name = st.selectbox(
+            "Escenario de proyeccion (5 anios)",
+            scenario_keys,
+            index=0,
+            help="Cada escenario aplica un choque sostenido durante 5 anios.",
+        )
+        st.caption(PROJECTION_SCENARIOS[proj_scenario_name].description)
+
+        try:
+            quarterly_df = pd.read_csv(ROOT / "data_processed" / "quarterly_master.csv")
+            last_observed_year = int(quarterly_df["year"].dropna().max())
+            projection_df = project_scenario(
+                calibration,
+                proj_scenario_name,
+                parameters=params,
+                mobility=mobility,
+                base_year=last_observed_year,
+            )
+            consolidated = build_consolidated_table(
+                quarterly_df,
+                calibration,
+                projection_df,
+                last_observed_year=last_observed_year,
+                history_years=5,
+            )
+        except Exception as exc:
+            st.error(f"No se pudo construir la tabla: {exc}")
+        else:
+            display = consolidated.copy()
+            for col in display.columns:
+                display[col] = display[col].map(lambda x: "n/d" if pd.isna(x) else f"{x:,.1f}")
+            st.dataframe(display, width="stretch")
+
+            csv_bytes = to_csv_bytes(consolidated)
+            st.download_button(
+                "Descargar CSV",
+                data=csv_bytes,
+                file_name=f"MF_Colombia_{mobility}_{proj_scenario_name.replace(' ', '_')}.csv",
+                mime="text/csv",
+                help="Tabla completa en CSV UTF-8 con BOM (compatible con Excel en espanol).",
+            )
 
     with tab_data:
         st.subheader("Calibracion base")
