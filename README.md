@@ -1,55 +1,110 @@
 # Modelo Mundell-Fleming Colombia
 
-Proyecto reproducible para construir un modelo Mundell-Fleming de economia abierta pequena con tasa de cambio flexible, calibrado a la ultima informacion publica disponible para Colombia al 24 de abril de 2026.
+Simulador interactivo del modelo Mundell-Fleming aplicado al caso colombiano,
+desplegado como app Streamlit. Material academico para la Maestria en Economia
+Aplicada de UniAndes (curso de Macroeconomia, presentaciones 34-39).
+
+App publica: https://modelo-mundell-fleming-colombia.onrender.com/
+
+## Que ofrece
+
+- **Modo dual de movilidad de capitales:**
+  - **Perfecta** (canonico Mankiw cap. 13): tasa anclada por UIP, politica fiscal
+    no mueve el producto, politica monetaria efectiva. Resolucion en forma cerrada.
+  - **Imperfecta** (calibracion empirica para Colombia): BP con pendiente positiva,
+    ajuste de TRM via residual de balanza de pagos, regla de Taylor para Banrep.
+- **8 sliders de choques** alineados a Mankiw + Banrep: G, T, M, tasa Banrep, tasa
+  Fed, prima de riesgo Colombia, Brent, NX autonomo.
+- **Datos en vivo** (TRM Datos Abiertos, Fed funds y Brent FRED) con cache 1 h y
+  fallback transparente a snapshot.
+- **Proyeccion deterministica a 5 anios** bajo escenarios predefinidos. Sin Monte
+  Carlo, fiel a la logica del modelo.
+- **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
+- **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
+  correlacion).
+- **Diagrama IS-LM-BP** con curvas que se redibujan en vivo.
 
 ## Estructura
 
 ```text
-data_raw/        Archivos descargados desde DANE, BanRep, Datos Abiertos y otras fuentes.
-data_processed/  Base trimestral, calibracion, parametros y matriz de fuentes.
-src/             Descarga, procesamiento y modelo.
-app/             App Streamlit con sliders.
-outputs/         Resultados de escenarios y validacion economica.
-docs/            Metodologia y notas de trazabilidad.
+app/
+  app.py                Streamlit principal
+src/
+  mf_model.py           simulate(), perfecta + imperfecta, validate_signs
+  mf_curves.py          helpers para dibujar IS, LM, BP en plano (gap, rate)
+  mf_projection.py      project() determinista a 5 anios + escenarios
+  consolidated_table.py historico DANE + proyeccion del modelo, anclado anual
+  live_data.py          fetchers TRM (Datos Abiertos) + FRED (DFF, Brent)
+  backtest.py           run_backtest() trimestre a trimestre, metricas RMSE/MAE
+  download_data.py      ETL offline para regenerar el snapshot del repo
+  process_data.py       parsea raw -> data_processed, escribe CSVs
+data_raw/               Snapshots descargados (DANE, Banrep, Datos Abiertos)
+data_processed/         CSVs limpios consumidos por la app
+outputs/                scenario_results.csv, validation_tests.csv, charts
+docs/
+  metodologia.md        Modelo, datos, validacion, backtesting, limitaciones
 ```
 
-## Ejecucion
+## Ejecucion local
 
 ```bash
 pip install -r requirements.txt
-python src/download_data.py
-python src/process_data.py
-python src/make_charts.py
 streamlit run app/app.py
 ```
 
-En esta sesion deje tambien un lanzador local que usa las dependencias instaladas en `.deps`:
+O con el lanzador alternativo (usa `.deps/` si existe):
 
 ```bash
 python run_app.py
 ```
 
-## Despliegue publico
+## Regenerar el snapshot
 
-Inclui un archivo `render.yaml` y una guia en `DEPLOYMENT.md` para publicar la app como servicio web en Render y asociarla a un dominio propio con HTTPS.
-
-Comando de arranque recomendado para hosting:
+Solo necesario si se quiere actualizar los CSVs del repo a una calibracion mas
+reciente. La app ya consume datos en vivo de TRM, Fed funds y Brent en runtime.
 
 ```bash
-streamlit run app/app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true --browser.gatherUsageStats false
+python src/download_data.py   # descarga raw a data_raw/
+python src/process_data.py    # parsea raw -> data_processed/
+python src/make_charts.py     # graficos historicos en outputs/
 ```
 
-Si alguna descarga falla por bloqueo anti-bot o DNS, revise `data_raw/download_log.json`. El caso conocido es el XLSX del MHCP: la pagina publica existe, pero el boton de descarga puede activar Radware. El modelo conserva la fuente y usa cifras oficiales resumidas por BanRep/MHCP.
+## Despliegue
 
-## Datos base principales
+Render con `render.yaml` incluido. Auto-deploy desde `main` activado por
+defecto. Si el webhook GitHub-Render se cae (ha pasado), usa **Manual Deploy
+-> Deploy latest commit** en el dashboard.
 
-- PIB y componentes: DANE, cuentas nacionales trimestrales, IV trimestre de 2025.
-- TRM: Datos Abiertos Colombia / Superintendencia Financiera, vigente al 24 de abril de 2026.
-- Inflacion: DANE IPC, marzo de 2026.
-- Tasa de politica monetaria: Banco de la Republica, vigente desde el 1 de abril de 2026.
-- Balanza de pagos: Banco de la Republica, IV trimestre de 2025.
-- Variables externas y proxies: Fed H.15, FRED/EIA, CountryEconomy y Trading Economics cuando el portal oficial no ofrece descarga simple en esta sesion.
+Detalles en `DEPLOYMENT.md`.
 
-## Limitacion importante
+## Tests
 
-Este es un modelo estructural simplificado para simulacion comparativa, no un pronostico oficial de la TRM. Los parametros conductuales son editables y se documentan como supuestos calibrables.
+```bash
+PYTHONPATH=src python -c "import mf_model, pandas as pd; calib_df = pd.read_csv('data_processed/base_calibration.csv'); calib = {r['variable']: float(r['value']) if str(r['value']).replace('.','').replace('-','').isdigit() else r['value'] for _,r in calib_df.iterrows()}; print(mf_model.validate_signs(calib, mobility='perfecta')); print(mf_model.validate_signs(calib, mobility='imperfecta'))"
+```
+
+Las 17 pruebas de signos deben pasar.
+
+Para el smoke test del Streamlit:
+
+```python
+from streamlit.testing.v1 import AppTest
+at = AppTest.from_file("app/app.py", default_timeout=60)
+at.run()
+assert len(at.exception) == 0
+```
+
+## Limitaciones importantes
+
+Modelo estatico-comparativo y linealizado. NO pronostica TRM. Backtesting
+solo incluye Fed funds y Brent como exogenos: no captura COVID 2020Q2,
+paro 2021, ni inflacion 2022. La prima de riesgo entra al modelo via slider
+pero no se backtestea por falta de serie publica fiable.
+
+Detalles tecnicos completos en `docs/metodologia.md`.
+
+## Licencia
+
+Material academico de uso educativo. Modelo y ecuaciones tomados de Mankiw
+(8a/9a ed.) y de las presentaciones del curso de Macroeconomia, UniAndes
+MECA.

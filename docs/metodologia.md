@@ -1,51 +1,173 @@
 # Metodologia
 
-## Definicion de nivel actual
+## Que hace y que no hace este simulador
 
-Se usa la ultima observacion oficial o publica disponible al 24 de abril de 2026. Para cuentas nacionales, la ultima publicacion del DANE disponible corresponde al IV trimestre de 2025, publicada el 16 de febrero de 2026. Para TRM, la base Socrata de Datos Abiertos llega al 24 de abril de 2026.
+Es una herramienta academica de estatica comparativa para visualizar los
+mecanismos del modelo Mundell-Fleming aplicado a Colombia. Tres usos validos:
 
-## Fuentes
+- Reproducir resultados textbook de Mankiw cap. 13 (movilidad perfecta).
+- Explorar el comportamiento bajo movilidad imperfecta calibrada con datos
+  colombianos.
+- Proyectar de forma deterministica a 5 anios el equilibrio bajo escenarios
+  predefinidos, ancladas al ultimo anio observado.
 
-La matriz completa esta en `data_processed/source_matrix.csv`. Las fuentes de mayor prioridad son DANE, Banco de la Republica, Superintendencia Financiera / Datos Abiertos y MHCP. Cuando el acceso directo fue bloqueado o no expuso descarga simple, se uso proxy publico y se marco como tal.
+NO pronostica la TRM, NO usa Monte Carlo, NO genera intervalos estocasticos.
+
+## Datos
+
+### En vivo (con cache)
+
+| Serie | Fuente | Endpoint | Cache |
+|---|---|---|---|
+| TRM diaria | Datos Abiertos / Superfinanciera | Socrata SODA | 1 h |
+| Fed funds efectiva | FRED | DFF | 1 h |
+| Brent | FRED / EIA | DCOILBRENTEU | 1 h |
+
+Si una fuente falla, el badge dice "snapshot" y se usa el valor del
+calibrado base. La app no falla silenciosamente.
+
+### Snapshot fijo
+
+| Serie | Fuente | Frecuencia | Ultimo dato |
+|---|---|---|---|
+| PIB y componentes (C, I, G, X, M) reales y nominales | DANE Cuentas Nacionales | Trimestral | 2025Q4 |
+| IPC e inflacion | DANE | Mensual | 2026-03 |
+| Tasa de politica monetaria | Banco de la Republica | Evento | 2026-04-01 |
+| Cuenta corriente y financiera | Banco de la Republica | Trimestral | 2025Q4 |
+| Prima de riesgo Colombia, M3, reservas | Proxies publicos (CountryEconomy, TradingEconomics) | Mensual / Diaria | 2026-Q1 |
+
+La matriz completa de fuentes y URLs esta en `data_processed/source_matrix.csv`.
 
 ## Modelo
 
-El modelo usa los bloques clasicos de Mundell-Fleming:
+### Bloque comun
 
 ```text
 Y = C + I + G + NX
-C = C0 + c(Y - T)
-I = I0 - b(r - r0)
-NX = X(q, Y*, petroleo, terminos de intercambio) - M(q, Y)
+C = C0 + c (Y - T)
+I = I0 - b (r - r0)
+NX = X(q, oil) - M(q, Y) + NX_aut
 BP = CA + KA + errores_y_omisiones
 ```
 
-La TRM se ajusta por una combinacion de paridad descubierta ajustada por riesgo y presiones de balanza de pagos:
+Donde `q` es el tipo de cambio real (proporcional al nominal en este modelo
+estatico de precios fijos), `c` la propension marginal a consumir (`mpc`),
+`b` la sensibilidad de la inversion a la tasa real, y `NX_aut` un choque
+exogeno a las exportaciones netas.
+
+### Movilidad perfecta (textbook Mankiw cap. 13)
+
+La curva BP es horizontal: la tasa local queda anclada por paridad de
+intereses descubierta y ajustada por riesgo:
 
 ```text
-Delta E / E =
-  sensibilidad_uip * Delta(i* + riesgo + depreciacion_esperada - i)
-  + factores_reales
-  - sensibilidad_bp * (BP / PIB_usd)
+r = r* + risk_premium + expected_depreciation
 ```
 
-La convencion es: mayor `E` significa depreciacion del peso colombiano. Un superavit de balanza de pagos reduce `E`; un deficit aumenta `E`.
+Resolucion en forma cerrada (sin iteracion):
+1. `r` queda determinado por UIP.
+2. `Y` queda determinado por la LM invertida dada `r` y `M`.
+3. `e` (TRM) absorbe el desbalance de la IS via `NX`. Resolvemos analiticamente
+   el `q_change` que hace `NX(q) = NX_required`.
 
-## Calibracion
+Resultados canonicos esperados:
+- **Politica fiscal NO mueve el producto:** `dY = 0`. La apreciacion
+  cambiaria reduce NX en exactamente lo que sube G.
+- **Politica monetaria SI es efectiva:** `dM > 0` deprecia, sube NX, sube Y.
+- **Choque a tasa Banrep no tiene efecto:** UIP la ancla.
 
-Los niveles base se guardan en `data_processed/base_calibration.csv`. Las variables observadas se separan de proxies y transformaciones. Los parametros conductuales se guardan en `data_processed/parameters.csv` y son editables en el codigo o desde la app.
+### Movilidad imperfecta (calibracion empirica para Colombia)
+
+La curva BP tiene pendiente positiva. Los flujos de capital responden con
+elasticidad finita al diferencial de tasas. La TRM ajusta proporcional a un
+saldo residual de balanza de pagos. Se resuelve por iteracion de punto fijo
+(12 pasos).
+
+El banco central sigue una regla de Taylor simplificada:
+
+```text
+r = r0 + delta_policy_rate - kappa_M (M%) + kappa_Y (gap_Y%)
+```
+
+Bajo este regimen:
+- Politica fiscal SI mueve el producto (dY > 0 con dG > 0).
+- TRM se aprecia parcialmente.
+- Politica monetaria conserva efectividad pero menor que en perfecta.
+
+### Choques (Shock dataclass, 8 dimensiones)
+
+Politica domestica:
+- `government_spending_pct` (G, % del G base)
+- `tax_pct_of_gdp` (T, % del PIB)
+- `money_supply_pct` (M3, %)
+- `domestic_policy_rate_bp` (Banrep, puntos basicos)
+
+Externos:
+- `foreign_rate_bp` (Fed funds, puntos basicos)
+- `risk_premium_bp` (prima Colombia, puntos basicos)
+- `oil_price_pct` (Brent, %)
+- `nx_autonomous_pct` (choque a NX, % del PIB; consolida terminos de
+  intercambio, demanda externa, X/M directos)
+
+### Parametros conductuales
+
+11 parametros editables guardados en `data_processed/parameters.csv`:
+`mpc`, `investment_rate_sensitivity`, `money_rate_sensitivity`,
+`output_rate_sensitivity`, `eta_export_q`, `eta_import_q`, `eta_import_y`,
+`eta_oil_export`, `capital_flow_sensitivity_usd_m_per_pp`,
+`exchange_rate_uip_sensitivity`, `exchange_rate_bp_sensitivity`. Los
+ultimos tres solo aplican en el modo imperfecta.
 
 ## Validacion
 
-Las pruebas de signos se guardan en `outputs/validation_tests.csv`. El modelo exige que:
+`outputs/validation_tests.csv` contiene 17 pruebas de signos contra teoria
+(8 perfecta + 9 imperfecta). Todas deben pasar tras cualquier cambio al
+modelo:
 
-- mayor prima de riesgo deprecie la TRM;
-- mayor tasa externa deprecie la TRM;
-- mayor tasa domestica aprecie la TRM en el corto plazo;
-- menor precio del petroleo deprecie la TRM;
-- mejores exportaciones aprecien la TRM;
-- expansion monetaria deprecie la TRM.
+- Subida prima de riesgo deprecia
+- Subida tasa Fed deprecia
+- Caida petroleo deprecia
+- Mejora externa aprecia
+- Expansion monetaria deprecia y sube Y
+- Perfecta: expansion fiscal no mueve Y, aprecia, tasa Banrep no efecto
+- Imperfecta: subida tasa Banrep aprecia, expansion fiscal sube Y
 
-## Limitaciones
+## Proyeccion a 5 anios
 
-El modelo es comparativo-estatico y linealizado alrededor del estado base. No incorpora expectativas racionales, curva de Phillips completa, reaccion endogena de politica fiscal ni microestructura cambiaria. La prima de riesgo, M3, Brent y terminos de intercambio usan proxies publicos cuando el portal oficial no permitio descarga directa en esta sesion.
+Module `src/mf_projection.py`. Cada anio aplica un choque sostenido de
+exogenos sobre la calibracion base y resuelve el equilibrio estatico. Los
+choques no se acumulan entre anios; cada periodo es independiente.
+
+Escenarios predefinidos: Base, Expansion fiscal sostenida, Subida tasa Fed
+sostenida, Ciclo petrolero adverso, Subida prima de riesgo.
+
+La tabla consolidada en la app combina:
+- 5 anios historicos: suma anual de los 4 trimestres de `quarterly_master.csv`.
+- 5 anios proyectados: el % cambio del modelo aplicado al ultimo anio
+  observado (anclaje, evita estacionalidad de Q4).
+
+## Backtesting
+
+Module `src/backtest.py`. Para cada trimestre desde el primero disponible
+hasta el ultimo, alimenta el modelo con `Delta_Fed_bp` y `Delta_Brent_pct`
+observados, predice el cambio % de TRM, compara con observado.
+
+Reporta RMSE, MAE, correlacion y residuos. Series usadas:
+- TRM diaria de Datos Abiertos (promediada a trimestres).
+- Fed funds (FRED DFF).
+- Brent (FRED DCOILBRENTEU).
+
+Limitaciones reconocidas:
+- El modelo es estatico-comparativo: cada periodo es independiente.
+- No incluye prima de riesgo Colombia (sin serie publica fiable de calidad).
+- No captura choques de oferta domesticos (COVID 2020Q2, paro 2021,
+  inflacion 2022).
+
+Estos son limites teoricos del modelo, no bugs.
+
+## Limitaciones generales
+
+El modelo es comparativo-estatico y linealizado alrededor del estado base.
+No incorpora expectativas racionales, curva de Phillips completa, reaccion
+endogena de politica fiscal, ni microestructura cambiaria. Las elasticidades
+son calibrables y se documentan como supuestos editables.
