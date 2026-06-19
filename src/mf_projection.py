@@ -200,16 +200,19 @@ def project_with_sensitivity(
     parameters: Mapping[str, float] | None = None,
     mobility: str = "perfecta",
     base_year: int | None = None,
-    sensitivity_pct: float = 25.0,
+    sensitivity_pct: float = 13.0,
 ) -> dict[str, pd.DataFrame]:
     """Proyecta el escenario en 3 trayectorias: central, low (-sigma) y high (+sigma).
 
     El sensitivity_pct se aplica como factor multiplicativo a cada componente del
     shock por anio. Es **analisis de sensibilidad**, NO una banda de confianza
-    estadistica ni Monte Carlo. Justificacion: dado que el modelo es deterministico
-    y los parametros son calibracion ingenieril, mostrar +/- sensitivity_pct
-    permite al usuario visualizar el rango de incertidumbre razonable atribuible
-    a la calibracion de la magnitud de los choques.
+    estadistica ni Monte Carlo.
+
+    El default 13% NO es arbitrario: corresponde a ~2 errores estandar relativos
+    de la elasticidad mejor identificada de la calibracion OLS (eta_import_y =
+    2.70, SE 0.18 -> 2*SE/coef ≈ 13%; ver docs/calibracion_ols.md). Es la
+    incertidumbre econometrica del parametro dominante propagada a la magnitud
+    del choque, lo que da a la banda una interpretacion empirica defendible.
     """
     if scenario_name not in PROJECTION_SCENARIOS:
         raise KeyError(f"Escenario {scenario_name!r} no esta en PROJECTION_SCENARIOS.")

@@ -992,12 +992,13 @@ with right:
             )
 
             st.divider()
-            st.subheader("Trayectoria proyectada con sensibilidad ±25%")
+            st.subheader("Trayectoria proyectada con sensibilidad ±13%")
             st.caption(
-                "**Sensibilidad, NO banda de confianza estadistica.** Para visualizar el efecto de la incertidumbre "
-                "en la magnitud del choque, las trayectorias 'low' y 'high' aplican el escenario con ±25% del shock "
-                "anual. La trayectoria central es la del escenario original. No es Monte Carlo ni intervalo "
-                "bayesiano: es analisis de sensibilidad deterministico."
+                "**Sensibilidad, NO banda de confianza estadistica.** Las trayectorias 'low' y 'high' aplican el "
+                "escenario con ±13% del shock anual. Ese 13% no es arbitrario: es ~2 errores estandar relativos de "
+                "la elasticidad mejor identificada en la calibracion OLS (eta_import_y = 2.70, SE 0.18). Asi la banda "
+                "refleja la incertidumbre econometrica del parametro dominante, no un numero redondo. No es Monte "
+                "Carlo ni intervalo bayesiano: es analisis de sensibilidad deterministico."
             )
 
             sens = project_with_sensitivity(
@@ -1006,7 +1007,6 @@ with right:
                 parameters=params,
                 mobility=mobility,
                 base_year=last_observed_year,
-                sensitivity_pct=25.0,
             )
 
             variable_options = {

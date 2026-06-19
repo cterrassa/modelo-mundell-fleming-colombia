@@ -51,9 +51,16 @@ DEFAULT_PARAMETERS: Dict[str, float] = {
     "investment_rate_sensitivity": 0.018,
     "money_rate_sensitivity": 0.08,
     "output_rate_sensitivity": 0.50,
-    "eta_export_q": 0.45,
-    "eta_import_q": 0.25,
-    "eta_import_y": 1.35,
+    # Elasticidades comerciales calibradas por OLS sobre quarterly_master.csv
+    # (2005-2025, diferencias log interanuales). Ver src/calibrate.py y
+    # docs/calibracion_ols.md. Detalle por parametro abajo.
+    "eta_export_q": 0.30,   # bajado de 0.45: el estimado naive sale wrong-signed por
+                            # confusion con commodities (no identificado limpio); se
+                            # ancla en un valor bajo coherente con exportador de commodities.
+    "eta_import_q": 0.10,   # estimado ~0 (no significativo): importaciones precio-inelasticas
+                            # en el corto plazo. Se usa 0.10, extremo del IC, para conservar un
+                            # canal de expenditure-switching minimo.
+    "eta_import_y": 2.70,   # estimado +2.70 (SE 0.18, R2 0.77): importaciones muy prociclicas.
     "eta_oil_export": 0.12,
     "capital_flow_sensitivity_usd_m_per_pp": 800.0,
     "exchange_rate_uip_sensitivity": 0.025,
