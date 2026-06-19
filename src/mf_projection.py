@@ -1,5 +1,8 @@
 """Proyeccion deterministica a 5 anos del modelo Mundell-Fleming.
 
+Tambien soporta lectura de sendas custom desde CSV (e.g., el escenario
+proxy estilo MFMP en data_processed/mfmp_proxy_scenario.csv).
+
 Cada periodo (anual) recibe un choque de exogenas y se resuelve el equilibrio
 estatico-comparativo. No hay Monte Carlo, no hay bandas estocasticas: la
 proyeccion es la solucion del modelo dado el camino de las exogenas.
@@ -21,6 +24,7 @@ ilustran un escenario macroeconomico relevante para Colombia.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Mapping
 
 import pandas as pd
@@ -44,6 +48,25 @@ def _const_path(shock: Shock) -> list[Shock]:
     return [Shock(**{f: getattr(shock, f) for f in Shock.__dataclass_fields__}) for _ in range(HORIZON_YEARS)]
 
 
+def _load_csv_path(csv_path: Path) -> list[Shock]:
+    """Lee una senda de choques desde CSV con cabecera comentada (##).
+
+    Esperado: columnas year_offset, government_spending_pct, foreign_rate_bp,
+    risk_premium_bp, oil_price_pct, nx_autonomous_pct.
+    Filas: una por anio del horizonte (year_offset 1..HORIZON_YEARS).
+    """
+    df = pd.read_csv(csv_path, comment="#")
+    df = df.sort_values("year_offset").reset_index(drop=True)
+    paths: list[Shock] = []
+    shock_fields = set(Shock.__dataclass_fields__)
+    for _, row in df.iterrows():
+        kwargs = {col: float(row[col]) for col in df.columns if col in shock_fields and pd.notna(row[col])}
+        paths.append(Shock(**kwargs))
+    while len(paths) < HORIZON_YEARS:
+        paths.append(paths[-1] if paths else Shock())
+    return paths[:HORIZON_YEARS]
+
+
 def _recurring_path(annual_shock: Shock) -> list[Shock]:
     """Choque recurrente lineal: el ano N aplica N veces el choque anual.
 
@@ -62,12 +85,22 @@ def _recurring_path(annual_shock: Shock) -> list[Shock]:
     return paths
 
 
+_MFMP_PROXY_PATH = Path(__file__).resolve().parents[1] / "data_processed" / "mfmp_proxy_scenario.csv"
+
 PROJECTION_SCENARIOS: dict[str, ProjectionScenario] = {
     "Base (sin choques)": ProjectionScenario(
         name="Base (sin choques)",
         description="Las exogenas se mantienen en su valor del calibrado base. Sirve como referencia: "
                     "los 5 anios coinciden con el equilibrio inicial.",
         annual_shocks=_const_path(Shock()),
+    ),
+    "MFMP proxy (BanRep + FMI WEO)": ProjectionScenario(
+        name="MFMP proxy (BanRep + FMI WEO)",
+        description="Senda macroeconomica tipo Marco Fiscal de Mediano Plazo. NO usa cifras del MFMP "
+                    "oficial; es una construccion proxy con supuestos consistentes con BanRep (Informe "
+                    "de Politica Monetaria, Encuesta de Expectativas) y FMI WEO. Editable en "
+                    "data_processed/mfmp_proxy_scenario.csv.",
+        annual_shocks=_load_csv_path(_MFMP_PROXY_PATH) if _MFMP_PROXY_PATH.exists() else _const_path(Shock()),
     ),
     "Expansion fiscal recurrente (+5% G/anio)": ProjectionScenario(
         name="Expansion fiscal recurrente (+5% G/anio)",

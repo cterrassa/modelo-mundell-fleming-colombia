@@ -1,0 +1,26 @@
+## Senda macroeconomica proxy estilo MFMP para Colombia 2026-2030.
+##
+## Fuente: NO es el MFMP oficial del MHCP. Es una construccion proxy basada
+## en supuestos consistentes con:
+## - BanRep - Informe de Politica Monetaria (publicacion periodica).
+## - BanRep - Encuesta de Expectativas de Analistas Macroeconomicos.
+## - FMI World Economic Outlook (abril 2026, supuestos para Colombia).
+##
+## Para usar las cifras oficiales del MFMP cuando se publique:
+## - Reemplazar este archivo con las cifras finales del documento.
+## - Mantener el formato (cabecera con ## y columnas year_offset, *_pct, *_bp).
+##
+## Convencion de shocks respecto al calibrado base 2025Q4:
+## - government_spending_pct: % de cambio de G respecto al snapshot base.
+## - foreign_rate_bp: cambio de la Fed funds en puntos basicos.
+## - risk_premium_bp: cambio de la prima de riesgo Colombia en puntos basicos.
+## - oil_price_pct: % de cambio del Brent respecto al snapshot base.
+## - nx_autonomous_pct: % del PIB de choque autonomo a NX.
+##
+## Captura: 2026-06-18.
+year_offset,year_label,government_spending_pct,foreign_rate_bp,risk_premium_bp,oil_price_pct,nx_autonomous_pct,description
+1,2026,3.0,-50,-100,-15.0,0.5,Crecimiento G cercano al potencial; Fed inicia ciclo de bajadas; riesgo Colombia se modera.
+2,2027,6.1,-100,-150,-20.0,0.8,Politica fiscal consolida estimulo; Fed continua bajadas; Brent sigue debajo del snapshot.
+3,2028,9.3,-150,-175,-22.0,1.0,Crecimiento G acumulado 9.3% sobre el base; tasas externas en niveles neutrales.
+4,2029,12.6,-175,-200,-25.0,1.2,Trayectoria sostenida; cuenta corriente mejora por NX autonomo positivo recurrente.
+5,2030,15.9,-200,-200,-25.0,1.3,Estado estacionario aproximado; consolidacion del nuevo equilibrio.
