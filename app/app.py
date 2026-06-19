@@ -15,7 +15,7 @@ sys.path.insert(0, str(SRC))
 from mf_model import MOBILITY_OPTIONS, SCENARIOS, SCENARIO_MECHANISMS, Shock, simulate  # noqa: E402
 import mf_curves as curves  # noqa: E402
 import live_data  # noqa: E402
-from mf_projection import PROJECTION_SCENARIOS, project_scenario  # noqa: E402
+from mf_projection import PROJECTION_SCENARIOS, project_scenario, project_with_sensitivity  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
 import backtest as bt  # noqa: E402
 from long_run import simulate_long_run  # noqa: E402
@@ -990,6 +990,65 @@ with right:
                 mime="text/csv",
                 help="Tabla completa en CSV UTF-8 con BOM (compatible con Excel en espanol).",
             )
+
+            st.divider()
+            st.subheader("Trayectoria proyectada con sensibilidad ±25%")
+            st.caption(
+                "**Sensibilidad, NO banda de confianza estadistica.** Para visualizar el efecto de la incertidumbre "
+                "en la magnitud del choque, las trayectorias 'low' y 'high' aplican el escenario con ±25% del shock "
+                "anual. La trayectoria central es la del escenario original. No es Monte Carlo ni intervalo "
+                "bayesiano: es analisis de sensibilidad deterministico."
+            )
+
+            sens = project_with_sensitivity(
+                calibration,
+                proj_scenario_name,
+                parameters=params,
+                mobility=mobility,
+                base_year=last_observed_year,
+                sensitivity_pct=25.0,
+            )
+
+            variable_options = {
+                "TRM (COP/USD)": "trm_cop_per_usd",
+                "PIB real trimestral (COP bn)": "gdp_real_cop_billion",
+                "Tasa de interes (%)": "policy_rate_pct",
+                "Brecha del producto (%)": "output_gap_pct",
+                "Cuenta corriente (USD m)": "current_account_usd_m",
+            }
+            sel_label = st.selectbox(
+                "Variable a graficar",
+                list(variable_options.keys()),
+                index=0,
+            )
+            sel_var = variable_options[sel_label]
+
+            fig_sens = go.Figure()
+            years = sens["central"]["year"]
+            fig_sens.add_trace(go.Scatter(
+                x=years, y=sens["high"][sel_var], mode="lines",
+                name="High (+25%)",
+                line={"color": "rgba(220,38,38,0.3)", "width": 1},
+                showlegend=True,
+            ))
+            fig_sens.add_trace(go.Scatter(
+                x=years, y=sens["low"][sel_var], mode="lines",
+                name="Low (-25%)",
+                line={"color": "rgba(220,38,38,0.3)", "width": 1},
+                fill="tonexty", fillcolor="rgba(220,38,38,0.12)",
+                showlegend=True,
+            ))
+            fig_sens.add_trace(go.Scatter(
+                x=years, y=sens["central"][sel_var], mode="lines+markers",
+                name="Central",
+                line={"color": "#dc2626", "width": 3},
+            ))
+            fig_sens.update_layout(
+                xaxis_title="Anio",
+                yaxis_title=sel_label,
+                hovermode="x unified",
+            )
+            st.plotly_chart(plot_theme(fig_sens, 420), width="stretch")
 
     with tab_backtest:
         st.subheader("Backtesting contra realidad colombiana")
