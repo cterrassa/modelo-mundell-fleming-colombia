@@ -2,10 +2,10 @@ parameter,value,classification,note
 mpc,0.68,supuesto calibrable,Parametro conductual; editable.
 investment_rate_sensitivity,0.018,supuesto calibrable,Parametro conductual; editable.
 money_rate_sensitivity,0.08,supuesto calibrable,Parametro conductual; editable.
-output_rate_sensitivity,0.5,supuesto calibrable,Regla tipo Taylor 0.50; no estimado (sin serie de tasa en el panel).
-eta_export_q,0.25,calibrado OLS,"Estimado OLS +0.25 (SE 0.10) con control de commodities (Brent), muestra 2005-2016. Corrige el signo del OLS naive."
-eta_import_q,0.1,calibrado OLS,Estimado OLS ~0 (no significativo); fijado en 0.10 (extremo IC) para canal minimo.
-eta_import_y,2.7,calibrado OLS,"Estimado OLS quarterly_master 2005-2025 (YoY dln): +2.70, SE 0.18, R2 0.77."
+output_rate_sensitivity,0.5,supuesto calibrable,Regla Taylor 0.50; no estimado (sin serie de tasa).
+eta_export_q,0.18,calibrado OLS,"Estimado OLS +0.18 (SE 0.10) con control Brent (FRED), muestra completa 2005-2025. Corrige signo del OLS naive."
+eta_import_q,0.1,calibrado OLS,Estimado OLS ~0 (no signif); 0.10 (extremo IC) para canal minimo.
+eta_import_y,2.7,calibrado OLS,"Estimado OLS 2005-2025 (YoY dln): +2.70, SE 0.18, R2 0.77."
 eta_oil_export,0.12,supuesto calibrable,Parametro conductual; editable.
 capital_flow_sensitivity_usd_m_per_pp,800.0,supuesto calibrable,Parametro conductual; editable.
 exchange_rate_uip_sensitivity,0.025,supuesto calibrable,Parametro conductual; editable.

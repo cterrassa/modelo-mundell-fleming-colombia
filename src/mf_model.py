@@ -54,10 +54,10 @@ DEFAULT_PARAMETERS: Dict[str, float] = {
     # Elasticidades comerciales calibradas por OLS sobre quarterly_master.csv
     # (2005-2025, diferencias log interanuales). Ver src/calibrate.py y
     # docs/calibracion_ols.md. Detalle por parametro abajo.
-    "eta_export_q": 0.25,   # estimado +0.25 (SE 0.10) con control de precios de
-                            # commodities (Brent) sobre 2005-2016: el control absorbe
-                            # el factor de terminos de intercambio que confundia el
-                            # signo (el OLS naive sin control daba -0.28). Ver
+    "eta_export_q": 0.18,   # estimado +0.18 (SE 0.10) con control de Brent sobre
+                            # la muestra COMPLETA 2005-2025 (FRED DCOILBRENTEU): el
+                            # control absorbe el factor de terminos de intercambio
+                            # que confundia el signo (OLS naive daba -0.28). Ver
                             # docs/calibracion_ols.md y src/external_data.py.
     "eta_import_q": 0.10,   # estimado ~0 (no significativo): importaciones precio-inelasticas
                             # en el corto plazo. Se usa 0.10, extremo del IC, para conservar un

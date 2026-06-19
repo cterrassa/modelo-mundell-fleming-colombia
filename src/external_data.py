@@ -33,6 +33,12 @@ PINK_SHEET_URL = (
     "GEPcommodities/CMO-Historical-Data-Monthly.xlsx"
 )
 
+# FRED Brent (DCOILBRENTEU): CSV diario desde 1987 al presente. Alcanzable por
+# curl aunque el Python local no resuelva DNS. Es la fuente primaria del control
+# de petroleo porque llega al periodo actual (el Pink Sheet disponible se
+# truncaba en 2016Q3).
+FRED_BRENT_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
+
 # Columnas (0-indexed) en la hoja "Monthly Prices" del Pink Sheet.
 COMMODITY_COLS = {"brent": 2, "coal": 6, "coffee": 13, "gold": 72, "nickel": 70}
 
@@ -129,16 +135,43 @@ def fetch_partner_gdp_annual(countries: str = "USA;CHN;PAN;ECU;MEX;BRA;PER", yea
     return pd.DataFrame(rows)
 
 
+def parse_brent_fred_quarterly(source) -> pd.DataFrame:
+    """Parsea el CSV de FRED DCOILBRENTEU (diario) a Brent trimestral promedio."""
+    fb = pd.read_csv(source)
+    fb.columns = ["date", "brent"]
+    fb["date"] = pd.to_datetime(fb["date"], errors="coerce")
+    fb["brent"] = pd.to_numeric(fb["brent"], errors="coerce")
+    fb = fb.dropna()
+    fb["year"] = fb["date"].dt.year
+    fb["q"] = fb["date"].dt.quarter
+    fq = fb.groupby(["year", "q"])["brent"].mean().reset_index()
+    fq["period"] = fq["year"].astype(str) + "Q" + fq["q"].astype(str)
+    return fq[["period", "year", "q", "brent"]]
+
+
 def main() -> None:
     import sys
 
-    # Si se pasa una ruta local (archivo descargado con curl), parsear de ahi.
-    if len(sys.argv) > 1:
-        cmq = parse_commodities_quarterly(sys.argv[1])
+    # Uso: python external_data.py [pink_sheet.xlsx] [fred_brent.csv]
+    # El brent de FRED (al presente) tiene prioridad sobre el del Pink Sheet
+    # (truncado en 2016). Los demas commodities salen del Pink Sheet.
+    pink_path = sys.argv[1] if len(sys.argv) > 1 else None
+    fred_path = sys.argv[2] if len(sys.argv) > 2 else None
+
+    if pink_path:
+        cmq = parse_commodities_quarterly(pink_path)
     else:
         cmq = fetch_commodities_quarterly()
+
+    if fred_path:
+        fred = parse_brent_fred_quarterly(fred_path)
+        # Reemplazar brent por la serie FRED (al presente) via outer-merge en period.
+        cmq = cmq.drop(columns=["brent"]).merge(fred[["period", "brent"]], on="period", how="outer")
+        cmq = cmq.sort_values("period").reset_index(drop=True)
+
     cmq.to_csv(OUT, index=False)
     print(f"Commodities trimestrales: {len(cmq)} filas ({cmq['period'].iloc[0]} - {cmq['period'].iloc[-1]})")
+    print(f"Brent no nulo hasta: {cmq.dropna(subset=['brent'])['period'].iloc[-1]}")
     print(f"Guardado en {OUT}")
 
 

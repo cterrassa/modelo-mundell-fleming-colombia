@@ -138,20 +138,28 @@ def estimate() -> dict:
         merged = merged.sort_values("period").reset_index(drop=True)
         m_defl = merged["gdp_nominal_cop_billion"] / merged["gdp_real_cop_billion"]
         m_trm_real = merged["trm_avg_cop_per_usd"] / m_defl
-        ctrl = pd.DataFrame({
+        full = pd.DataFrame({
+            "period": merged["period"],
             "dln_x": _yoy_dln(merged["exports_real_cop_billion"]),
             "dln_trm_real": _yoy_dln(m_trm_real),
             "dln_oil": _yoy_dln(merged["brent"]),
             "dln_com": _yoy_dln(merged["commodity_idx"]),
-        }).dropna().reset_index(drop=True)
-        if len(ctrl) >= 10:
-            X_oil = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_oil"]])
-            exp_oil = _ols(ctrl["dln_x"].to_numpy(), X_oil)
-            X_com = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_com"]])
-            exp_com = _ols(ctrl["dln_x"].to_numpy(), X_com)
+        })
+        # dropna SEPARADO por regresion: el indice commodity solo llega a 2016,
+        # pero Brent (FRED) llega al presente. Compartir el dropna truncaria la
+        # regresion de petroleo a 2016.
+        oil = full.dropna(subset=["dln_x", "dln_trm_real", "dln_oil"]).reset_index(drop=True)
+        idx = full.dropna(subset=["dln_x", "dln_trm_real", "dln_com"]).reset_index(drop=True)
+        if len(oil) >= 10:
+            X_oil = np.column_stack([np.ones(len(oil)), oil["dln_trm_real"], oil["dln_oil"]])
+            exp_oil = _ols(oil["dln_x"].to_numpy(), X_oil)
+            X_com = np.column_stack([np.ones(len(idx)), idx["dln_trm_real"], idx["dln_com"]])
+            exp_com = _ols(idx["dln_x"].to_numpy(), X_com)
             results["export_with_commodity_control"] = {
-                "sample": f"{merged['period'].iloc[0]}-{merged['period'].iloc[-1]}",
-                "n": exp_oil["n"],
+                "sample_oil": f"{oil['period'].iloc[0]}-{oil['period'].iloc[-1]}",
+                "n_oil": exp_oil["n"],
+                "sample_index": f"{idx['period'].iloc[0]}-{idx['period'].iloc[-1]}",
+                "n_index": exp_com["n"],
                 "eta_export_q_oil": float(exp_oil["beta"][1]),
                 "eta_export_q_oil_se": float(exp_oil["se"][1]),
                 "beta_oil": float(exp_oil["beta"][2]),
@@ -186,10 +194,9 @@ def main() -> None:
     print(f"    eta_import_y = {_fmt(rob['eta_import_y'])}, eta_import_q = {_fmt(rob['eta_import_q'])}, eta_export_q = {_fmt(rob['eta_export_q'])}")
     cc = r.get("export_with_commodity_control")
     if cc:
-        print(f"\n[4] Exportaciones CON control de commodities  (muestra {cc['sample']}, n={cc['n']})")
-        print(f"    eta_export_q (control Brent)  = {_fmt(cc['eta_export_q_oil'])}  (SE {cc['eta_export_q_oil_se']:.4f})  beta_oil={_fmt(cc['beta_oil'])}  R2={cc['r2_oil']:.3f}")
-        print(f"    eta_export_q (control indice) = {_fmt(cc['eta_export_q_index'])}  (SE {cc['eta_export_q_index_se']:.4f})  R2={cc['r2_index']:.3f}")
-        print("    -> el control corrige el signo (vs seccion [2] sin control)")
+        print("\n[4] Exportaciones CON control de commodities (corrige el signo de [2])")
+        print(f"    control Brent  (FRED, {cc['sample_oil']}, n={cc['n_oil']}): eta_export_q = {_fmt(cc['eta_export_q_oil'])}  (SE {cc['eta_export_q_oil_se']:.4f})  beta_oil={_fmt(cc['beta_oil'])}  R2={cc['r2_oil']:.3f}")
+        print(f"    control indice (Pink Sheet, {cc['sample_index']}, n={cc['n_index']}): eta_export_q = {_fmt(cc['eta_export_q_index'])}  (SE {cc['eta_export_q_index_se']:.4f})  R2={cc['r2_index']:.3f}")
 
     print("\nComparacion con calibracion actual (parameters.csv):")
     print("    eta_import_y: 1.35 (actual)")

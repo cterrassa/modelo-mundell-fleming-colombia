@@ -35,9 +35,10 @@ sustituibles.
 
 | Especificación | `eta_export_q` | SE | R² | Muestra |
 |---|---:|---:|---:|---|
-| Sin control (naive) | **−0.28** | 0.083 | 0.13 | 2005-2025 (n=80) |
-| **+ control Brent** | **+0.25** | 0.096 | 0.52 | 2005-2016 (n=43) |
-| + control índice commodity | +0.14 | 0.092 | 0.45 | 2005-2016 (n=43) |
+| Sin control (naive) | **−0.28** | 0.083 | 0.13 | 2006-2025 (n=80) |
+| **+ control Brent (FRED)** | **+0.18** | 0.099 | 0.43 | 2006-2025 (n=80) |
+| + control Brent (Pink Sheet) | +0.25 | 0.096 | 0.52 | 2006-2016 (n=43) |
+| + control índice commodity | +0.14 | 0.092 | 0.45 | 2006-2016 (n=43) |
 
 **Lectura:** sin control, el coeficiente sale negativo, contrario a la teoría
 (una depreciación debería subir exportaciones). Es el problema clásico del
@@ -47,17 +48,22 @@ mismo factor de términos de intercambio. Cuando cae el precio del commodity,
 caen las exportaciones **y** se deprecia el peso simultáneamente → correlación
 negativa espuria.
 
-**Resolución (P32):** al agregar un control de precios de commodities
-(Brent, de la fuente World Bank Pink Sheet vía `src/external_data.py`), el
-factor de términos de intercambio se absorbe y `eta_export_q` **recupera el
-signo positivo esperado: +0.25 (SE 0.10)**, con el petróleo fuertemente
-significativo (β_oil=+0.21) y el R² subiendo de 0.13 a 0.52. Esto confirma
-el diagnóstico de variable omitida y entrega una elasticidad estructural
-usable. **Limitación:** la copia del Pink Sheet disponible en el entorno solo
-llegó hasta 2016Q3, así que la regresión con control usa la submuestra
-2005-2016 (43 obs, con buena variación: auge de commodities 2011-14 e inicio
-del desplome petrolero 2014-16). El fetcher `fetch_commodities_quarterly()`
-obtiene la serie completa donde el CDN sirva el archivo actualizado.
+**Resolución (P32):** al agregar un control de precios del petróleo (Brent),
+el factor de términos de intercambio se absorbe y `eta_export_q` **recupera el
+signo positivo esperado: +0.18 (SE 0.10) sobre la muestra completa 2006-2025**,
+con el petróleo fuertemente significativo (β_oil=+0.23) y el R² subiendo de
+0.13 a 0.43. Esto confirma el diagnóstico de variable omitida y entrega una
+elasticidad estructural usable.
+
+**Fuente del control y exhaustividad:** la primera copia disponible del World
+Bank Pink Sheet se truncaba en 2016Q3 (habría limitado la regresión a 43 obs).
+Tras una búsqueda más amplia, **FRED (serie DCOILBRENTEU) sí entrega Brent
+diario hasta el presente** y es alcanzable por curl (el Python local no
+resuelve DNS, pero curl sí). Por eso el control primario usa FRED Brent sobre
+la muestra completa 2006-2025 (n=80). El Pink Sheet se conserva como robustez
+(2006-2016) y para los demás commodities (carbón colombiano, café, oro). El
+estimado es estable entre fuentes y muestras: +0.18 (full sample) a +0.25
+(submuestra 2006-2016), siempre con el signo correcto.
 
 ## Decisión de calibración
 
@@ -65,7 +71,7 @@ obtiene la serie completa donde el CDN sirva el archivo actualizado.
 |---|---:|---:|---|
 | `eta_import_y` | 1.35 | **2.70** | Estimado directo, bien identificado (SE bajo, R² alto). |
 | `eta_import_q` | 0.25 | **0.10** | Estimado ≈0; se usa 0.10 (extremo superior del IC) para conservar un canal mínimo de expenditure-switching que el modelo necesita para que la TRM cierre el balance comercial. |
-| `eta_export_q` | 0.45 | **0.25** | Estimado +0.25 (SE 0.10) con control de commodities (Brent), muestra 2005-2016. Reemplaza el ancla de juicio 0.30 (P29) por un valor empíricamente identificado con el signo correcto. |
+| `eta_export_q` | 0.45 | **0.18** | Estimado +0.18 (SE 0.10) con control de Brent (FRED), muestra completa 2006-2025. Reemplaza el ancla de juicio 0.30 (P29) por un valor empíricamente identificado con el signo correcto. |
 | `output_rate_sensitivity` | 0.50 | 0.50 | **No estimado**: requiere serie de tasa de interés real trimestral que no está en el panel. Se mantiene el valor tipo Taylor. |
 
 ## Implicación económica del hallazgo
@@ -99,8 +105,9 @@ arbitrario anterior por una magnitud con interpretación econométrica.
   `fetch_partner_gdp_annual()` en `src/external_data.py` deja lista esa serie
   (World Bank WDI) para una extensión futura; no se incorporó aún por el
   desajuste de frecuencia (WDI es anual, el panel trimestral).
-- La regresión con control de commodities usa 2005-2016 por la copia del Pink
-  Sheet disponible; conviene re-estimar con la serie completa cuando el CDN
-  sirva el archivo actualizado.
+- El control primario de petróleo (FRED Brent) cubre la muestra completa
+  2006-2025; el índice commodity ponderado (Pink Sheet) solo llega a 2016 y se
+  usa como robustez. El carbón colombiano, café y oro del Pink Sheet quedan
+  limitados a 2016 hasta conseguir una copia actualizada del archivo.
 - `output_rate_sensitivity` y los parámetros financieros (`*_uip_*`, `*_bp_*`)
   siguen siendo supuestos, no estimados.
