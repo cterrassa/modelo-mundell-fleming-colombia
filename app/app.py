@@ -1008,40 +1008,67 @@ with right:
             if panel.empty:
                 st.warning("No se obtuvo panel historico. Posiblemente FRED esta inalcanzable desde el host. Intenta de nuevo en unos minutos.")
             else:
-                missing_optional = [c for c in ("fed_funds_pct", "brent_usd") if c not in panel.columns]
+                # Selector de ventana
+                if len(panel) > 0:
+                    available_quarters = panel["quarter"].tolist()
+                    available_years = sorted({int(q[:4]) for q in available_quarters})
+                    min_year, max_year = available_years[0], available_years[-1]
+                else:
+                    min_year, max_year = 2000, 2025
+                year_range = st.slider(
+                    "Ventana de backtest (anios)",
+                    min_value=min_year,
+                    max_value=max_year,
+                    value=(max(min_year, max_year - 10), max_year),
+                    step=1,
+                    help="Selecciona el rango de anios a usar. Por defecto los ultimos 10. Mueve los extremos para enfocar el backtest.",
+                )
+                start_year, end_year = year_range
+                panel_window = panel[
+                    panel["quarter"].apply(lambda q: start_year <= int(q[:4]) <= end_year)
+                ].reset_index(drop=True)
+                st.caption(f"Ventana: {start_year}Q1 - {end_year}Q4. Trimestres en la ventana: **{len(panel_window)}**.")
+
+                missing_optional = [c for c in ("fed_funds_pct", "brent_usd") if c not in panel_window.columns]
                 if missing_optional:
                     st.warning(
                         f"Panel parcial: faltan series **{', '.join(missing_optional)}** (probable: FRED inalcanzable "
                         "desde el servidor). El backtest sigue corriendo, pero los choques exogenos correspondientes "
                         "se tratan como cero. El RMSE refleja entonces la varianza inexplicada de la TRM."
                     )
-                bt_df = bt.run_backtest(panel, calibration, parameters=params, mobility=mobility)
-                m = bt.metrics(bt_df)
+                try:
+                    bt_df = bt.run_backtest(panel_window, calibration, parameters=params, mobility=mobility)
+                except ValueError as exc:
+                    st.error(f"Backtest no disponible: {exc}")
+                    bt_df = pd.DataFrame()
 
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Trimestres", f"{m['n']}")
-                c2.metric("RMSE (% TRM)", f"{m['rmse']:.2f}")
-                c3.metric("MAE (% TRM)", f"{m['mae']:.2f}")
-                c4.metric("Correlacion", f"{m['correlation']:.2f}" if not pd.isna(m['correlation']) else "n/d")
+                if not bt_df.empty:
+                    m = bt.metrics(bt_df)
 
-                fig_ts = go.Figure()
-                fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["observed_trm_change_pct"], name="Observado", mode="lines+markers", line={"color": "#172033"}))
-                fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["predicted_trm_change_pct"], name="Predicho", mode="lines+markers", line={"color": "#dc2626", "dash": "dash"}))
-                fig_ts.update_layout(xaxis_title="Trimestre", yaxis_title="Cambio % TRM", hovermode="x unified")
-                st.plotly_chart(plot_theme(fig_ts, 380), width="stretch")
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Trimestres", f"{m['n']}")
+                    c2.metric("RMSE (% TRM)", f"{m['rmse']:.2f}")
+                    c3.metric("MAE (% TRM)", f"{m['mae']:.2f}")
+                    c4.metric("Correlacion", f"{m['correlation']:.2f}" if not pd.isna(m['correlation']) else "n/d")
 
-                fig_sc = go.Figure()
-                fig_sc.add_trace(go.Scatter(x=bt_df["observed_trm_change_pct"], y=bt_df["predicted_trm_change_pct"], mode="markers", marker={"color": "#2563eb", "size": 8}, text=bt_df["quarter"], hovertemplate="%{text}: obs %{x:.2f}%, pred %{y:.2f}%<extra></extra>"))
-                rng = max(abs(bt_df["observed_trm_change_pct"]).max(), abs(bt_df["predicted_trm_change_pct"]).max(), 1.0) * 1.1
-                fig_sc.add_trace(go.Scatter(x=[-rng, rng], y=[-rng, rng], mode="lines", line={"color": "#94a3b8", "dash": "dot"}, name="45 grados", showlegend=False))
-                fig_sc.update_layout(xaxis_title="Cambio % TRM observado", yaxis_title="Cambio % TRM predicho", hovermode="closest")
-                st.plotly_chart(plot_theme(fig_sc, 380), width="stretch")
+                    fig_ts = go.Figure()
+                    fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["observed_trm_change_pct"], name="Observado", mode="lines+markers", line={"color": "#172033"}))
+                    fig_ts.add_trace(go.Scatter(x=bt_df["quarter"], y=bt_df["predicted_trm_change_pct"], name="Predicho", mode="lines+markers", line={"color": "#dc2626", "dash": "dash"}))
+                    fig_ts.update_layout(xaxis_title="Trimestre", yaxis_title="Cambio % TRM", hovermode="x unified")
+                    st.plotly_chart(plot_theme(fig_ts, 380), width="stretch")
 
-                with st.expander("Tabla detallada por trimestre"):
-                    bt_view = bt_df.copy()
-                    for col in bt_view.select_dtypes(include="number").columns:
-                        bt_view[col] = bt_view[col].map(lambda x: fmt(x, 2))
-                    st.dataframe(bt_view, width="stretch", hide_index=True)
+                    fig_sc = go.Figure()
+                    fig_sc.add_trace(go.Scatter(x=bt_df["observed_trm_change_pct"], y=bt_df["predicted_trm_change_pct"], mode="markers", marker={"color": "#2563eb", "size": 8}, text=bt_df["quarter"], hovertemplate="%{text}: obs %{x:.2f}%, pred %{y:.2f}%<extra></extra>"))
+                    rng = max(abs(bt_df["observed_trm_change_pct"]).max(), abs(bt_df["predicted_trm_change_pct"]).max(), 1.0) * 1.1
+                    fig_sc.add_trace(go.Scatter(x=[-rng, rng], y=[-rng, rng], mode="lines", line={"color": "#94a3b8", "dash": "dot"}, name="45 grados", showlegend=False))
+                    fig_sc.update_layout(xaxis_title="Cambio % TRM observado", yaxis_title="Cambio % TRM predicho", hovermode="closest")
+                    st.plotly_chart(plot_theme(fig_sc, 380), width="stretch")
+
+                    with st.expander("Tabla detallada por trimestre"):
+                        bt_view = bt_df.copy()
+                        for col in bt_view.select_dtypes(include="number").columns:
+                            bt_view[col] = bt_view[col].map(lambda x: fmt(x, 2))
+                        st.dataframe(bt_view, width="stretch", hide_index=True)
 
                 st.info(
                     "**Lectura:** el modelo es estatico-comparativo y solo incluye Fed funds y Brent como exogenos en este backtest. "

@@ -58,6 +58,7 @@ def build_exogenous_panel(
 
 REQUIRED_PANEL_COLUMNS = ("quarter", "trm")
 OPTIONAL_PANEL_COLUMNS = ("fed_funds_pct", "brent_usd")
+MIN_QUARTERS_FOR_BACKTEST = 4
 
 
 def run_backtest(
@@ -74,13 +75,23 @@ def run_backtest(
     Tolera columnas opcionales ausentes (si FRED no esta disponible, el panel
     solo tiene TRM y los choques exogenos se asumen 0). En ese caso el modelo
     siempre predice 0% y el RMSE refleja la varianza no explicada de la TRM.
+
+    Raises ValueError si faltan columnas requeridas o si el panel tiene
+    menos de MIN_QUARTERS_FOR_BACKTEST trimestres (datos insuficientes para
+    backtest significativo).
     """
-    if panel.empty or len(panel) < 2:
+    if panel.empty:
         return pd.DataFrame()
 
     missing_required = [c for c in REQUIRED_PANEL_COLUMNS if c not in panel.columns]
     if missing_required:
         raise ValueError(f"Panel incompleto, faltan columnas requeridas: {missing_required}.")
+
+    if len(panel) < MIN_QUARTERS_FOR_BACKTEST:
+        raise ValueError(
+            f"Panel insuficiente: {len(panel)} trimestres. "
+            f"Se requieren al menos {MIN_QUARTERS_FOR_BACKTEST} para un backtest significativo."
+        )
 
     has_fed = "fed_funds_pct" in panel.columns
     has_brent = "brent_usd" in panel.columns

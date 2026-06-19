@@ -25,19 +25,11 @@ from typing import Mapping
 
 import pandas as pd
 
-from mf_model import Shock
+from mf_model import Shock, _bp as bp, _pct as pct  # bp, pct re-exportados
 
 
 def shock_value(shock: Shock, field: str) -> float:
     return float(getattr(shock, field))
-
-
-def bp(value: float) -> float:
-    return value / 100.0
-
-
-def pct(value: float) -> float:
-    return value / 100.0
 
 
 def base_components(calibration: Mapping[str, float]) -> dict[str, float]:
