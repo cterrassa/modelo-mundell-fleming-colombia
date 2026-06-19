@@ -56,6 +56,16 @@ def _load_csv_path(csv_path: Path) -> list[Shock]:
     Filas: una por anio del horizonte (year_offset 1..HORIZON_YEARS).
     """
     df = pd.read_csv(csv_path, comment="#")
+    if "year_offset" not in df.columns:
+        raise ValueError(
+            f"_load_csv_path: {csv_path.name} no tiene columna 'year_offset'. "
+            f"Columnas recibidas: {list(df.columns)}."
+        )
+    if df["year_offset"].duplicated().any():
+        dups = df.loc[df["year_offset"].duplicated(), "year_offset"].tolist()
+        raise ValueError(f"_load_csv_path: year_offset duplicado en {csv_path.name}: {dups}.")
+    # Advertencia (no error) si faltan columnas de shock: se asumen 0.0. Asi un CSV
+    # que solo mueve G sigue siendo valido sin listar las 10 dimensiones.
     df = df.sort_values("year_offset").reset_index(drop=True)
     paths: list[Shock] = []
     shock_fields = set(Shock.__dataclass_fields__)

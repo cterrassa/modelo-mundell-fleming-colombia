@@ -25,7 +25,7 @@ from typing import Mapping
 
 import pandas as pd
 
-from mf_model import Shock, _bp as bp, _pct as pct  # bp, pct re-exportados
+from mf_model import Shock, _bp as bp  # bp: helper de conversion reexportado de mf_model
 
 
 def shock_value(shock: Shock, field: str) -> float:

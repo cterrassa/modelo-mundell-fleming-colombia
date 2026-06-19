@@ -1087,6 +1087,11 @@ with right:
                     panel["quarter"].apply(lambda q: start_year <= int(q[:4]) <= end_year)
                 ].reset_index(drop=True)
                 st.caption(f"Ventana: {start_year}Q1 - {end_year}Q4. Trimestres en la ventana: **{len(panel_window)}**.")
+                if len(panel_window) < bt.MIN_QUARTERS_FOR_BACKTEST:
+                    st.warning(
+                        f"Ventana muy pequena ({len(panel_window)} trimestres): se requieren al menos "
+                        f"{bt.MIN_QUARTERS_FOR_BACKTEST} para un backtest significativo. Amplia el rango de anios."
+                    )
 
                 missing_optional = [c for c in ("fed_funds_pct", "brent_usd") if c not in panel_window.columns]
                 if missing_optional:

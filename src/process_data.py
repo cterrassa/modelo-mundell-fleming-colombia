@@ -78,11 +78,28 @@ def parse_trm(path: Path) -> tuple[pd.DataFrame, dict]:
     return trm_q, latest
 
 
-def parse_ipc(path: Path) -> dict:
+def parse_ipc(path: Path, year: int = 2026) -> dict:
+    """Extrae inflacion del anexo IPC del DANE para el anio indicado.
+
+    El anexo trae una fila por anio en la columna 0. Si el archivo cambia de
+    estructura o no contiene el anio buscado, lanza ValueError explicito en vez
+    de un IndexError opaco (el Excel del DANE se renombra/reestructura cada anio).
+    """
     df = pd.read_excel(path, sheet_name="1", header=None)
-    row = df[df[0] == 2026].iloc[0]
+    matches = df[df[0] == year]
+    if matches.empty:
+        anios_disponibles = sorted(
+            int(v) for v in df[0].dropna().unique()
+            if isinstance(v, (int, float)) and 1990 <= v <= 2100
+        )
+        raise ValueError(
+            f"parse_ipc: no hay fila para el anio {year} en {path.name}. "
+            f"Anios disponibles: {anios_disponibles}. "
+            "Probablemente el Excel del DANE cambio de estructura; ajusta el parametro 'year'."
+        )
+    row = matches.iloc[0]
     return {
-        "inflation_reference_date": "2026-03",
+        "inflation_reference_date": f"{year}-03",
         "inflation_monthly_pct": float(row[1]),
         "inflation_ytd_pct": float(row[2]),
         "inflation_yoy_pct": float(row[3]),

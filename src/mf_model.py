@@ -261,6 +261,12 @@ def _simulate_fixed_exchange_rate(b: Dict[str, float], s: Shock, p: Mapping[str,
         + nx_aut
         + b["residual0"]
     )
+    # Inverso del multiplicador keynesiano de economia abierta:
+    #   1 - mpc + (M0/Y0) * eta_import_y
+    # Se anula (economia "liquida", multiplicador infinito) solo si la propension
+    # a consumir el ingreso adicional casi iguala la fuga por importaciones que
+    # ese ingreso genera. Con datos reales (mpc < 0.9, M/Y < 0.5) esto no ocurre;
+    # el guard solo protege ante calibraciones patologicas en parameters.csv.
     multiplier_inv = 1.0 - p["mpc"] + b["m0"] * p["eta_import_y"] / b["y0"]
     if abs(multiplier_inv) < 1e-9:
         y = b["y0"]

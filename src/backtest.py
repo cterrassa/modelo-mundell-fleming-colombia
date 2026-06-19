@@ -27,9 +27,20 @@ from mf_model import Shock, simulate
 
 
 def aggregate_quarterly(daily_df: pd.DataFrame, label: str) -> pd.DataFrame:
-    """Promedia una serie diaria a trimestres (frecuencia QE = quarter-end)."""
+    """Promedia una serie diaria a trimestres (frecuencia QE = quarter-end).
+
+    Espera columnas exactas ['date', 'value']. Si faltan, lanza ValueError con
+    mensaje claro (un fetcher que cambie el nombre de columna fallaria si no).
+    Invariante de salida: siempre devuelve columnas ['quarter', label].
+    """
     if daily_df is None or daily_df.empty:
         return pd.DataFrame(columns=["quarter", label])
+    missing = [c for c in ("date", "value") if c not in daily_df.columns]
+    if missing:
+        raise ValueError(
+            f"aggregate_quarterly: faltan columnas {missing}; "
+            f"recibidas {list(daily_df.columns)}. Se esperan ['date', 'value']."
+        )
     df = daily_df.copy()
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date").sort_index()
@@ -83,15 +94,17 @@ def run_backtest(
     if panel.empty:
         return pd.DataFrame()
 
-    missing_required = [c for c in REQUIRED_PANEL_COLUMNS if c not in panel.columns]
-    if missing_required:
-        raise ValueError(f"Panel incompleto, faltan columnas requeridas: {missing_required}.")
-
+    # Validar tamano ANTES de cualquier early-return: un panel de 1 fila no es
+    # empty pero produce range(1,1)=[] en el loop -> DataFrame vacio silencioso.
     if len(panel) < MIN_QUARTERS_FOR_BACKTEST:
         raise ValueError(
             f"Panel insuficiente: {len(panel)} trimestres. "
             f"Se requieren al menos {MIN_QUARTERS_FOR_BACKTEST} para un backtest significativo."
         )
+
+    missing_required = [c for c in REQUIRED_PANEL_COLUMNS if c not in panel.columns]
+    if missing_required:
+        raise ValueError(f"Panel incompleto, faltan columnas requeridas: {missing_required}.")
 
     has_fed = "fed_funds_pct" in panel.columns
     has_brent = "brent_usd" in panel.columns
@@ -100,6 +113,7 @@ def run_backtest(
     for i in range(1, len(panel)):
         prev = panel.iloc[i - 1]
         cur = panel.iloc[i]
+        notes: list[str] = []
 
         if has_fed and pd.notna(prev["fed_funds_pct"]) and pd.notna(cur["fed_funds_pct"]):
             delta_fed_bp = (float(cur["fed_funds_pct"]) - float(prev["fed_funds_pct"])) * 100.0
@@ -108,7 +122,11 @@ def run_backtest(
 
         if has_brent and pd.notna(prev["brent_usd"]) and pd.notna(cur["brent_usd"]):
             prev_brent = float(prev["brent_usd"])
-            delta_oil_pct = ((float(cur["brent_usd"]) - prev_brent) / prev_brent) * 100.0 if prev_brent != 0 else 0.0
+            if prev_brent != 0:
+                delta_oil_pct = ((float(cur["brent_usd"]) - prev_brent) / prev_brent) * 100.0
+            else:
+                delta_oil_pct = 0.0
+                notes.append("brent_prev=0")
         else:
             delta_oil_pct = 0.0
 
@@ -117,7 +135,11 @@ def run_backtest(
         predicted_pct = float(result["trm_change_pct"])
 
         prev_trm = float(prev["trm"])
-        observed_pct = ((float(cur["trm"]) - prev_trm) / prev_trm) * 100.0 if prev_trm != 0 else 0.0
+        if prev_trm != 0:
+            observed_pct = ((float(cur["trm"]) - prev_trm) / prev_trm) * 100.0
+        else:
+            observed_pct = 0.0
+            notes.append("trm_prev=0")
 
         rows.append({
             "quarter": cur["quarter"],
@@ -126,6 +148,7 @@ def run_backtest(
             "observed_trm_change_pct": observed_pct,
             "predicted_trm_change_pct": predicted_pct,
             "residual_pct": observed_pct - predicted_pct,
+            "calculation_note": ";".join(notes) if notes else "",
         })
     return pd.DataFrame(rows)
 
