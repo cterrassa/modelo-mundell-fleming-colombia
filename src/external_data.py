@@ -1,24 +1,27 @@
-"""Descarga de series externas para calibracion (uso OFFLINE, no en el deploy).
+"""Series externas para calibracion (uso OFFLINE, no en el deploy).
 
-Fuentes verificadas como alcanzables desde el entorno de desarrollo (a
-diferencia de FRED, que falla por DNS):
-- World Bank Pink Sheet (precios de commodities, .xlsx mensual).
-- World Bank WDI API (PIB real de socios comerciales, JSON anual).
+Catalogo de fuentes ALCANZABLES por curl (el Python local no resuelve DNS, pero
+curl si). Resultado de una busqueda exhaustiva que confirmo cada serie con
+HTTP 200 y cobertura real. Todas las de FRED se descargan como CSV sin API key:
+    https://fred.stlouisfed.org/graph/fredgraph.csv?id=SERIESID
 
-Construye series trimestrales de commodities relevantes para la canasta
-exportadora colombiana (petroleo Brent, carbon colombiano, cafe, oro, niquel)
-y un indice ponderado. Se usa para calibrar la elasticidad de exportaciones
-del modelo (resuelve el signo equivocado por variable omitida). El resultado
-se guarda en data_processed/commodities_quarterly.csv para reproducibilidad;
-el modelo desplegado NO descarga esto en runtime.
+Como el Python local no tiene DNS, el flujo es: descargar con curl a un
+directorio (por defecto .fredtmp/), y parsear los CSV locales con este modulo.
 
-Run: python src/external_data.py
+    # 1) descargar (Bash):
+    for ID in POILBREUSDM PCOALAUUSDM PCOFFOTMUSDM PNICKUSDM PMETAINDEXM \
+              GDPC1 CLVMNACSCAB1GQDE NGDPRSAXDCBRQ NGDPRSAXDCMXQ; do
+      curl -sS -o ".fredtmp/$ID.csv" "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$ID"
+    done
+    # 2) construir los CSV procesados:
+    python src/external_data.py .fredtmp
+
+Escribe data_processed/commodities_quarterly.csv y foreign_demand_quarterly.csv.
+El modelo desplegado NO descarga nada de esto en runtime.
 """
 
 from __future__ import annotations
 
-import io
-import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -26,153 +29,124 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "data_processed" / "commodities_quarterly.csv"
-
-PINK_SHEET_URL = (
-    "https://www.worldbank.org/content/dam/Worldbank/GEP/"
-    "GEPcommodities/CMO-Historical-Data-Monthly.xlsx"
-)
-
-# FRED Brent (DCOILBRENTEU): CSV diario desde 1987 al presente. Alcanzable por
-# curl aunque el Python local no resuelva DNS. Es la fuente primaria del control
-# de petroleo porque llega al periodo actual (el Pink Sheet disponible se
-# truncaba en 2016Q3).
-FRED_BRENT_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
-
-# Columnas (0-indexed) en la hoja "Monthly Prices" del Pink Sheet.
-COMMODITY_COLS = {"brent": 2, "coal": 6, "coffee": 13, "gold": 72, "nickel": 70}
-
-# Pesos aproximados de la canasta exportadora de commodities de Colombia
-# (participacion relativa entre estos 5 bienes en exportaciones de bienes,
-# promedio ~2015-2024). Documentados como aproximados; se normalizan a 1.
-COLOMBIA_COMMODITY_WEIGHTS = {"brent": 0.55, "coal": 0.25, "coffee": 0.10, "gold": 0.08, "nickel": 0.02}
-
-HTTP_TIMEOUT = 90
+OUT_COMMODITIES = ROOT / "data_processed" / "commodities_quarterly.csv"
+OUT_FOREIGN = ROOT / "data_processed" / "foreign_demand_quarterly.csv"
+FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}"
 
 
-def _parse_pink_date(raw) -> tuple[int, int] | None:
-    """Soporta los dos formatos de fecha del Pink Sheet: texto 'YYYYMmm' y
-    objetos datetime (el archivo mezcla ambos segun el periodo)."""
-    if raw is None:
-        return None
-    if hasattr(raw, "year") and hasattr(raw, "month"):
-        return int(raw.year), int(raw.month)
-    s = str(raw)
-    if "M" in s:
-        try:
-            y, m = s.split("M")
-            return int(y), int(m)
-        except ValueError:
-            return None
-    return None
+# Catalogo de series confirmadas por curl (HTTP 200, cobertura verificada).
+# Cada entrada: descripcion, frecuencia, cobertura observada en la verificacion.
+SERIES_CATALOG = {
+    # --- Commodities (FRED, IMF PCPS), mensual USD, ~1992 -> 2026-05 ---
+    "POILBREUSDM": "Petroleo Brent (IMF PCPS), mensual",
+    "PCOALAUUSDM": "Carbon termico Australia/Newcastle (proxy carbon colombiano), mensual",
+    "PCOFFOTMUSDM": "Cafe arabica Other Milds (proxy Colombian Milds), mensual",
+    "PNICKUSDM": "Niquel (ferroniquel Cerro Matoso), mensual",
+    "PMETAINDEXM": "Indice global de metales (proxy imperfecto de oro), mensual",
+    "PALLFNFINDEXM": "Indice IMF de todos los commodities, mensual",
+    "PNRGINDEXM": "Indice IMF de energia, mensual",
+    # --- PIB real de socios (demanda externa) ---
+    "GDPC1": "PIB real EE.UU. (chained 2017 USD, SA), trimestral",
+    "CLVMNACSCAB1GQDE": "PIB real Alemania (proxy UE), trimestral",
+    "NGDPRSAXDCBRQ": "PIB real Brasil (BRL const, SA), trimestral",
+    "NGDPRSAXDCMXQ": "PIB real Mexico (MXN const, SA), trimestral",
+    # --- Bloque cambiario / monetario / riesgo (disponibles para extension futura) ---
+    "RBCOBIS": "ITCR/REER Colombia broad (BIS), mensual -> 2026-05",
+    "COLIR3TIB01STM": "Tasa interbancaria 3m Colombia (proxy politica), mensual -> 2026-05",
+    "COLIRLTLT01STM": "Bono gobierno 10a Colombia, mensual -> 2026-05",
+    "DGS10": "UST 10a (para diferencial soberano), diaria",
+    "BAMLEMCBPIOAS": "Spread credito EM (proxy EMBI/prima de riesgo), diaria",
+}
+# Otras fuentes confirmadas no-FRED:
+#   TRM oficial diaria (Banrep via Socrata, AL PRESENTE):
+#     https://www.datos.gov.co/resource/32sa-8pi3.csv?$limit=50000
+#   PIB anual 8 socios (incluye China/Peru/Ecuador/Panama, hasta 2024):
+#     https://api.worldbank.org/v2/country/USA;CHN;PAN;ECU;BRA;MEX;PER;DEU/indicator/NY.GDP.MKTP.KD?format=json
+#   Terminos de intercambio Colombia (WDI, anual, ancla validacion, hasta 2023):
+#     https://api.worldbank.org/v2/country/COL/indicator/TT.PRI.MRCH.XD.WD?format=json
+# NO alcanzable por curl: precio de oro puro (LBMA eliminada de FRED 2025-05),
+#   carbon colombiano especifico, cafe 'Colombian Milds' separado, PIB trimestral
+#   de China/Peru/Ecuador/Panama, y los pesos bilaterales de exportacion (WITS/
+#   Comtrade/OEC con DNS bloqueado). Ver docs/calibracion_ols.md.
+
+# Pesos de la canasta exportadora colombiana para el indice de commodities
+# (participacion aproximada; petroleo y carbon dominan).
+COMMODITY_WEIGHTS = {"oil": 0.50, "coal": 0.27, "coffee": 0.12, "nickel": 0.05, "metal": 0.06}
+
+# Pesos de socios en exportaciones de Colombia (WITS 2023, via WebSearch; no
+# curl-confirmados — ver docs). Renormalizados entre los 4 socios con PIB
+# trimestral en FRED.
+PARTNER_WEIGHTS = {"us": 0.28, "de": 0.08, "br": 0.038, "mx": 0.033}
+
+COMMODITY_FILES = {
+    "oil": "POILBREUSDM", "coal": "PCOALAUUSDM", "coffee": "PCOFFOTMUSDM",
+    "nickel": "PNICKUSDM", "metal": "PMETAINDEXM",
+}
+PARTNER_FILES = {
+    "us": "GDPC1", "de": "CLVMNACSCAB1GQDE", "br": "NGDPRSAXDCBRQ", "mx": "NGDPRSAXDCMXQ",
+}
 
 
-def parse_commodities_quarterly(source, year_min: int = 2004, year_max: int = 2025) -> pd.DataFrame:
-    """Parsea el Pink Sheet (ruta a .xlsx o bytes) a commodities trimestrales.
-
-    Separado del fetch de red para poder usar un archivo ya descargado (en
-    entornos donde Python no tiene DNS pero curl si, se descarga con curl y se
-    parsea aqui).
-    """
-    import openpyxl
-
-    wb = openpyxl.load_workbook(source, read_only=True, data_only=True)
-    ws = wb["Monthly Prices"]
-
-    recs = []
-    for row in ws.iter_rows(min_row=8, values_only=True):
-        ym = _parse_pink_date(row[0])
-        if ym is None:
-            continue
-        y, m = ym
-        if y < year_min or y > year_max:
-            continue
-        rec = {"year": y, "q": (m - 1) // 3 + 1}
-        for name, ci in COMMODITY_COLS.items():
-            try:
-                rec[name] = float(row[ci])
-            except (TypeError, ValueError):
-                rec[name] = np.nan
-        recs.append(rec)
-
-    cm = pd.DataFrame(recs)
-    cmq = cm.groupby(["year", "q"]).mean(numeric_only=True).reset_index()
-    cmq["period"] = cmq["year"].astype(str) + "Q" + cmq["q"].astype(str)
-
-    w = COLOMBIA_COMMODITY_WEIGHTS
-    wsum = sum(w.values())
-    cmq["commodity_idx"] = np.exp(sum((w[k] / wsum) * np.log(cmq[k]) for k in w))
-    return cmq
+def _fred_csv_to_quarterly(path: Path, col: str) -> pd.DataFrame:
+    """Lee un CSV de FRED (date,value) y promedia a trimestre. Sirve para series
+    mensuales o diarias; las trimestrales pasan sin cambio (un dato por trimestre)."""
+    d = pd.read_csv(path)
+    d.columns = ["date", col]
+    d["date"] = pd.to_datetime(d["date"], errors="coerce")
+    d[col] = pd.to_numeric(d[col], errors="coerce")
+    d = d.dropna()
+    d["period"] = d["date"].dt.year.astype(str) + "Q" + d["date"].dt.quarter.astype(str)
+    return d.groupby("period")[col].mean().reset_index()
 
 
-def fetch_commodities_quarterly(year_min: int = 2004, year_max: int = 2025) -> pd.DataFrame:
-    """Descarga el Pink Sheet por red (requiere DNS en Python) y parsea.
-
-    En entornos sin DNS en Python (p.ej. esta maquina de desarrollo), usar
-    curl para descargar y luego parse_commodities_quarterly(ruta).
-    """
-    req = urllib.request.Request(PINK_SHEET_URL, headers={"User-Agent": "Mozilla/5.0 (MF-Colombia-Calib/1.0)"})
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
-        raw = resp.read()
-    return parse_commodities_quarterly(io.BytesIO(raw), year_min, year_max)
-
-
-def fetch_partner_gdp_annual(countries: str = "USA;CHN;PAN;ECU;MEX;BRA;PER", year_min: int = 2004) -> pd.DataFrame:
-    """PIB real anual de socios (World Bank WDI, NY.GDP.MKTP.KD)."""
-    import json
-
-    url = (
-        f"https://api.worldbank.org/v2/country/{countries}/indicator/"
-        f"NY.GDP.MKTP.KD?format=json&per_page=20000&date={year_min}:2025"
-    )
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (MF-Colombia-Calib/1.0)"})
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
-    rows = []
-    for rec in payload[1] or []:
-        if rec.get("value") is not None:
-            rows.append({"country": rec["countryiso3code"], "year": int(rec["date"]), "gdp": float(rec["value"])})
-    return pd.DataFrame(rows)
+def build_commodity_index(fred_dir: Path) -> pd.DataFrame:
+    """Construye el indice de commodities trimestral ponderado por canasta."""
+    parts = [_fred_csv_to_quarterly(fred_dir / f"{sid}.csv", name)
+             for name, sid in COMMODITY_FILES.items()]
+    com = parts[0]
+    for p in parts[1:]:
+        com = com.merge(p, on="period", how="inner")
+    ws = sum(COMMODITY_WEIGHTS.values())
+    com["commodity_idx"] = np.exp(sum((COMMODITY_WEIGHTS[k] / ws) * np.log(com[k]) for k in COMMODITY_WEIGHTS))
+    com["_y"] = com["period"].str[:4].astype(int)
+    com["_q"] = com["period"].str[-1].astype(int)
+    com = com.sort_values(["_y", "_q"]).reset_index(drop=True)
+    com = com.rename(columns={"oil": "brent"})
+    return com[["period", "brent", "coal", "coffee", "nickel", "metal", "commodity_idx"]]
 
 
-def parse_brent_fred_quarterly(source) -> pd.DataFrame:
-    """Parsea el CSV de FRED DCOILBRENTEU (diario) a Brent trimestral promedio."""
-    fb = pd.read_csv(source)
-    fb.columns = ["date", "brent"]
-    fb["date"] = pd.to_datetime(fb["date"], errors="coerce")
-    fb["brent"] = pd.to_numeric(fb["brent"], errors="coerce")
-    fb = fb.dropna()
-    fb["year"] = fb["date"].dt.year
-    fb["q"] = fb["date"].dt.quarter
-    fq = fb.groupby(["year", "q"])["brent"].mean().reset_index()
-    fq["period"] = fq["year"].astype(str) + "Q" + fq["q"].astype(str)
-    return fq[["period", "year", "q", "brent"]]
+def build_foreign_demand(fred_dir: Path) -> pd.DataFrame:
+    """Indice de demanda externa: PIB de socios en indice base 100, ponderado."""
+    parts = [_fred_csv_to_quarterly(fred_dir / f"{sid}.csv", name)
+             for name, sid in PARTNER_FILES.items()]
+    fd = parts[0]
+    for p in parts[1:]:
+        fd = fd.merge(p, on="period", how="inner")
+    fd["_y"] = fd["period"].str[:4].astype(int)
+    fd["_q"] = fd["period"].str[-1].astype(int)
+    fd = fd.sort_values(["_y", "_q"]).reset_index(drop=True)
+    ws = sum(PARTNER_WEIGHTS.values())
+    for k in PARTNER_WEIGHTS:
+        fd[k + "_i"] = fd[k] / fd[k].iloc[0] * 100.0
+    fd["foreign_demand_idx"] = np.exp(sum((PARTNER_WEIGHTS[k] / ws) * np.log(fd[k + "_i"]) for k in PARTNER_WEIGHTS))
+    return fd[["period", "foreign_demand_idx"]]
 
 
 def main() -> None:
     import sys
 
-    # Uso: python external_data.py [pink_sheet.xlsx] [fred_brent.csv]
-    # El brent de FRED (al presente) tiene prioridad sobre el del Pink Sheet
-    # (truncado en 2016). Los demas commodities salen del Pink Sheet.
-    pink_path = sys.argv[1] if len(sys.argv) > 1 else None
-    fred_path = sys.argv[2] if len(sys.argv) > 2 else None
-
-    if pink_path:
-        cmq = parse_commodities_quarterly(pink_path)
-    else:
-        cmq = fetch_commodities_quarterly()
-
-    if fred_path:
-        fred = parse_brent_fred_quarterly(fred_path)
-        # Reemplazar brent por la serie FRED (al presente) via outer-merge en period.
-        cmq = cmq.drop(columns=["brent"]).merge(fred[["period", "brent"]], on="period", how="outer")
-        cmq = cmq.sort_values("period").reset_index(drop=True)
-
-    cmq.to_csv(OUT, index=False)
-    print(f"Commodities trimestrales: {len(cmq)} filas ({cmq['period'].iloc[0]} - {cmq['period'].iloc[-1]})")
-    print(f"Brent no nulo hasta: {cmq.dropna(subset=['brent'])['period'].iloc[-1]}")
-    print(f"Guardado en {OUT}")
+    fred_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / ".fredtmp"
+    if not fred_dir.exists():
+        raise SystemExit(
+            f"No existe {fred_dir}. Descarga primero los CSV de FRED con curl "
+            "(ver el docstring de este modulo)."
+        )
+    com = build_commodity_index(fred_dir)
+    com.to_csv(OUT_COMMODITIES, index=False)
+    print(f"commodities_quarterly.csv: {len(com)} filas ({com['period'].iloc[0]} - {com['period'].iloc[-1]})")
+    fd = build_foreign_demand(fred_dir)
+    fd.to_csv(OUT_FOREIGN, index=False)
+    print(f"foreign_demand_quarterly.csv: {len(fd)} filas ({fd['period'].iloc[0]} - {fd['period'].iloc[-1]})")
 
 
 if __name__ == "__main__":

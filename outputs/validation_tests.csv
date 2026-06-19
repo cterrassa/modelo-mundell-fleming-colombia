@@ -1,21 +1,21 @@
 test,metric,value,condition,passed,mobility
-Subida prima de riesgo deprecia,trm_cop_per_usd,5082.213818409478,> 3560.6200,True,perfecta
-Subida tasa Fed deprecia,trm_cop_per_usd,5082.213818409478,> 3560.6200,True,perfecta
-Caida petroleo deprecia,trm_cop_per_usd,3685.4123443320736,> 3560.6200,True,perfecta
-Mejora externa aprecia,trm_cop_per_usd,2827.372003639645,< 3560.6200,True,perfecta
-Expansion monetaria deprecia,trm_cop_per_usd,4665.576422864614,> 3560.6200,True,perfecta
+Subida prima de riesgo deprecia,trm_cop_per_usd,5546.135038888977,> 3560.6200,True,perfecta
+Subida tasa Fed deprecia,trm_cop_per_usd,5546.135038888977,> 3560.6200,True,perfecta
+Caida petroleo deprecia,trm_cop_per_usd,3723.4604856879255,> 3560.6200,True,perfecta
+Mejora externa aprecia,trm_cop_per_usd,2603.8108263596123,< 3560.6200,True,perfecta
+Expansion monetaria deprecia,trm_cop_per_usd,5002.468388427307,> 3560.6200,True,perfecta
 Expansion monetaria sube Y,gdp_real_cop_billion,275777.6695349219,> 271434.7141,True,perfecta
 Expansion fiscal: Y constante,gdp_real_cop_billion,271434.7141091751,== 271434.7141,True,perfecta
-Expansion fiscal aprecia,trm_cop_per_usd,2788.286403158773,< 3560.6200,True,perfecta
-Tasa Banrep no tiene efecto en perfecta,trm_cop_per_usd,3560.619999999994,== 3560.6200,True,perfecta
-Subida prima de riesgo deprecia,trm_cop_per_usd,3661.0710841771074,> 3560.6200,True,imperfecta
-Subida tasa Fed deprecia,trm_cop_per_usd,3661.0710841771074,> 3560.6200,True,imperfecta
-Caida petroleo deprecia,trm_cop_per_usd,3569.850572835102,> 3560.6200,True,imperfecta
-Mejora externa aprecia,trm_cop_per_usd,3506.82863840189,< 3560.6200,True,imperfecta
-Expansion monetaria deprecia,trm_cop_per_usd,3634.7993584294663,> 3560.6200,True,imperfecta
-Expansion monetaria sube Y,gdp_real_cop_billion,272100.09567513695,> 271434.7141,True,imperfecta
-Subida tasa Banrep aprecia,trm_cop_per_usd,3469.8677340086983,< 3560.6200,True,imperfecta
-Expansion fiscal sube Y (movilidad imperfecta),gdp_real_cop_billion,274047.28577590507,> 271434.7141,True,imperfecta
+Expansion fiscal aprecia,trm_cop_per_usd,2552.808353413253,< 3560.6200,True,perfecta
+Tasa Banrep no tiene efecto en perfecta,trm_cop_per_usd,3560.619999999992,== 3560.6200,True,perfecta
+Subida prima de riesgo deprecia,trm_cop_per_usd,3662.882783533442,> 3560.6200,True,imperfecta
+Subida tasa Fed deprecia,trm_cop_per_usd,3662.8827835334428,> 3560.6200,True,imperfecta
+Caida petroleo deprecia,trm_cop_per_usd,3570.013110273466,> 3560.6200,True,imperfecta
+Mejora externa aprecia,trm_cop_per_usd,3505.8973570854696,< 3560.6200,True,imperfecta
+Expansion monetaria deprecia,trm_cop_per_usd,3636.1281121791035,> 3560.6200,True,imperfecta
+Expansion monetaria sube Y,gdp_real_cop_billion,272041.8914009679,> 271434.7141,True,imperfecta
+Subida tasa Banrep aprecia,trm_cop_per_usd,3468.312327121414,< 3560.6200,True,imperfecta
+Expansion fiscal sube Y (movilidad imperfecta),gdp_real_cop_billion,274078.77962528646,> 271434.7141,True,imperfecta
 Expansion monetaria sin efecto en M (fijo),gdp_real_cop_billion,271434.71410917514,== 271434.7141,True,fijo
 Expansion fiscal sube Y (regimen fijo),gdp_real_cop_billion,274470.31833345053,> 271434.7141,True,fijo
 Subida tasa Fed reduce Y (via inversion),gdp_real_cop_billion,270882.8882616033,< 271434.7141,True,fijo

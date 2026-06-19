@@ -54,11 +54,15 @@ DEFAULT_PARAMETERS: Dict[str, float] = {
     # Elasticidades comerciales calibradas por OLS sobre quarterly_master.csv
     # (2005-2025, diferencias log interanuales). Ver src/calibrate.py y
     # docs/calibracion_ols.md. Detalle por parametro abajo.
-    "eta_export_q": 0.18,   # estimado +0.18 (SE 0.10) con control de Brent sobre
-                            # la muestra COMPLETA 2005-2025 (FRED DCOILBRENTEU): el
-                            # control absorbe el factor de terminos de intercambio
-                            # que confundia el signo (OLS naive daba -0.28). Ver
-                            # docs/calibracion_ols.md y src/external_data.py.
+    "eta_export_q": 0.10,   # Con el set de control COMPLETO (indice de commodities
+                            # full + demanda externa de socios, 2005-2025) la
+                            # elasticidad de exportaciones a la TRM es estadisticamente
+                            # CERO (+0.03, SE 0.08). Los motores reales son la demanda
+                            # externa (elast. ~2.2) y los precios de commodities, no el
+                            # tipo de cambio (pesimismo de elasticidades de exportador
+                            # de commodities). Se usa 0.10 (dentro del IC) para conservar
+                            # un canal minimo de expenditure-switching que el modelo
+                            # necesita. Ver docs/calibracion_ols.md.
     "eta_import_q": 0.10,   # estimado ~0 (no significativo): importaciones precio-inelasticas
                             # en el corto plazo. Se usa 0.10, extremo del IC, para conservar un
                             # canal de expenditure-switching minimo.

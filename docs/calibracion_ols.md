@@ -33,12 +33,17 @@ sustituibles.
 
 ### 2. Demanda de exportaciones: Δln(X) ~ Δln(TRM_real)
 
-| Especificación | `eta_export_q` | SE | R² | Muestra |
+| Especificación | `eta_export_q` (TRM) | SE | R² | Otros coeficientes |
 |---|---:|---:|---:|---|
-| Sin control (naive) | **−0.28** | 0.083 | 0.13 | 2006-2025 (n=80) |
-| **+ control Brent (FRED)** | **+0.18** | 0.099 | 0.43 | 2006-2025 (n=80) |
-| + control Brent (Pink Sheet) | +0.25 | 0.096 | 0.52 | 2006-2016 (n=43) |
-| + control índice commodity | +0.14 | 0.092 | 0.45 | 2006-2016 (n=43) |
+| Sin control (naive) | **−0.28** | 0.083 | 0.13 | — |
+| + control Brent solo | +0.18 | 0.099 | 0.43 | β_oil +0.23 |
+| + índice commodity full | +0.01 | 0.091 | 0.35 | β_com +0.19 |
+| **+ commodity + demanda externa** | **+0.03** (≈0, no signif.) | 0.077 | 0.54 | β_com +0.10; **β_Y\*ext +2.22** (SE 0.39) |
+
+*Muestra completa 2006-2025 (n=80), salvo el naive. Series: índice de
+commodities (FRED IMF PCPS: Brent, carbón Newcastle, café Other Milds, níquel,
+metales) y demanda externa (PIB real de EE.UU., Alemania, Brasil, México
+ponderado por exportaciones), todas al presente vía curl a FRED.*
 
 **Lectura:** sin control, el coeficiente sale negativo, contrario a la teoría
 (una depreciación debería subir exportaciones). Es el problema clásico del
@@ -48,22 +53,34 @@ mismo factor de términos de intercambio. Cuando cae el precio del commodity,
 caen las exportaciones **y** se deprecia el peso simultáneamente → correlación
 negativa espuria.
 
-**Resolución (P32):** al agregar un control de precios del petróleo (Brent),
-el factor de términos de intercambio se absorbe y `eta_export_q` **recupera el
-signo positivo esperado: +0.18 (SE 0.10) sobre la muestra completa 2006-2025**,
-con el petróleo fuertemente significativo (β_oil=+0.23) y el R² subiendo de
-0.13 a 0.43. Esto confirma el diagnóstico de variable omitida y entrega una
-elasticidad estructural usable.
+**Resolución (P32 → P33, búsqueda exhaustiva):** una primera versión usó solo
+Brent como control y obtuvo `eta_export_q` = +0.18, pero eso era un **artefacto
+de control incompleto**. Al hacer la búsqueda exhaustiva de datos (FRED espeja
+las series de commodities del IMF PCPS hasta el presente, y hay PIB trimestral
+de los socios grandes), se pudo armar el set de control COMPLETO: índice de
+commodities full (petróleo, carbón, café, níquel, metales) **más demanda
+externa** (PIB de socios ponderado por exportaciones).
 
-**Fuente del control y exhaustividad:** la primera copia disponible del World
-Bank Pink Sheet se truncaba en 2016Q3 (habría limitado la regresión a 43 obs).
-Tras una búsqueda más amplia, **FRED (serie DCOILBRENTEU) sí entrega Brent
-diario hasta el presente** y es alcanzable por curl (el Python local no
-resuelve DNS, pero curl sí). Por eso el control primario usa FRED Brent sobre
-la muestra completa 2006-2025 (n=80). El Pink Sheet se conserva como robustez
-(2006-2016) y para los demás commodities (carbón colombiano, café, oro). El
-estimado es estable entre fuentes y muestras: +0.18 (full sample) a +0.25
-(submuestra 2006-2016), siempre con el signo correcto.
+Con el set completo, la elasticidad de exportaciones a la TRM **colapsa a cero
+(+0.03, SE 0.08, no significativa)**. Los verdaderos motores de las
+exportaciones reales colombianas son:
+- **Demanda externa**, con elasticidad **+2.22** (SE 0.39, altamente
+  significativa): las exportaciones siguen el ciclo de los socios comerciales.
+- **Precios de commodities**, con coeficiente +0.10-0.19.
+
+El R² sube de 0.13 (naive) a 0.54 (set completo). El +0.18 del control-solo-Brent
+era spurious: el petróleo no absorbía del todo el factor de demanda/términos de
+intercambio, dejando carga residual falsa sobre la TRM.
+
+**Interpretación económica (pesimismo de elasticidades):** es el patrón clásico
+de un exportador de commodities. Colombia exporta petróleo, carbón y café a
+precios mundiales en cantidades reales determinadas por capacidad y demanda
+externa; el **nivel del peso casi no cambia el volumen exportado**. El canal de
+ajuste comercial vía tipo de cambio es débil en ambos lados (importaciones
+precio-inelásticas, exportaciones volumen-inelásticas a la TRM). **Implicación
+clave para el modelo: la TRM colombiana se ajusta principalmente por el canal
+financiero (paridad de tasas, prima de riesgo, petróleo) y no por el comercial**
+— consistente con cómo se comporta el peso en la realidad.
 
 ## Decisión de calibración
 
@@ -71,23 +88,27 @@ estimado es estable entre fuentes y muestras: +0.18 (full sample) a +0.25
 |---|---:|---:|---|
 | `eta_import_y` | 1.35 | **2.70** | Estimado directo, bien identificado (SE bajo, R² alto). |
 | `eta_import_q` | 0.25 | **0.10** | Estimado ≈0; se usa 0.10 (extremo superior del IC) para conservar un canal mínimo de expenditure-switching que el modelo necesita para que la TRM cierre el balance comercial. |
-| `eta_export_q` | 0.45 | **0.18** | Estimado +0.18 (SE 0.10) con control de Brent (FRED), muestra completa 2006-2025. Reemplaza el ancla de juicio 0.30 (P29) por un valor empíricamente identificado con el signo correcto. |
+| `eta_export_q` | 0.45 | **0.10** | Con set de control completo (commodities + demanda externa) la elasticidad a la TRM es estadísticamente cero (+0.03, SE 0.08). Se usa 0.10 (dentro del IC) para conservar un canal mínimo de expenditure-switching que el modelo necesita. Los motores reales son demanda externa (+2.2) y commodities. |
 | `output_rate_sensitivity` | 0.50 | 0.50 | **No estimado**: requiere serie de tasa de interés real trimestral que no está en el panel. Se mantiene el valor tipo Taylor. |
 
 ## Implicación económica del hallazgo
 
-La calibración empírica revela un **canal de expenditure-switching asimétrico**
-en datos colombianos:
+La calibración empírica revela un **canal de expenditure-switching muy débil en
+ambos lados** del comercio colombiano:
 - **Importaciones precio-inelásticas** (`eta_import_q` ≈ 0): el volumen real de
   importaciones no responde a la TRM en el corto plazo.
-- **Exportaciones sí responden** (`eta_export_q` ≈ +0.25), pero solo se aprecia
-  una vez se controla por el precio de commodities; sin ese control la relación
-  queda enmascarada por el ciclo de términos de intercambio.
+- **Exportaciones volumen-inelásticas a la TRM** (`eta_export_q` ≈ 0 con control
+  completo): el volumen exportado lo determinan la demanda externa (elast. +2.2)
+  y los precios de commodities, no el nivel del peso.
 
-El canal de ajuste comercial vía TRM existe pero es **moderado y recae casi
-enteramente del lado exportador**. Esto implica que la TRM debe moverse de forma
-apreciable para cerrar desbalances comerciales — consistente con la alta
-volatilidad observada del peso colombiano.
+Es decir, **el tipo de cambio NO cierra el balance comercial por cantidades** en
+el corto plazo (cuasi-incumplimiento de Marshall-Lerner en datos colombianos).
+La consecuencia para el modelo es importante: la TRM colombiana se ajusta
+fundamentalmente por el **canal financiero** (paridad de tasas, prima de riesgo,
+precio del petróleo) y no por el comercial. El modelo ya captura esos canales
+financieros (UIP, riesgo, oil); la calibración confirma que ahí está el ajuste,
+y explica la alta volatilidad del peso frente a choques financieros y de
+commodities.
 
 ## Banda de sensibilidad
 

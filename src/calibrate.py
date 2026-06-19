@@ -127,46 +127,50 @@ def estimate() -> dict:
         "eta_export_q": float(exp_n["beta"][1]),
     }
 
-    # --- 4. Exportaciones CON control de commodities (resuelve el signo) ---
-    # Requiere data_processed/commodities_quarterly.csv (de src/external_data.py).
-    # El control de precios de commodities absorbe el factor de terminos de
-    # intercambio que confunde la relacion TRM->exportaciones.
-    commodities_path = ROOT / "data_processed" / "commodities_quarterly.csv"
-    if commodities_path.exists():
-        cm = pd.read_csv(commodities_path)
-        merged = df.merge(cm[["period", "brent", "commodity_idx"]], on="period", how="inner")
-        merged = merged.sort_values("period").reset_index(drop=True)
+    # --- 4. Exportaciones con set de control COMPLETO ---
+    # Requiere commodities_quarterly.csv y foreign_demand_quarterly.csv
+    # (de src/external_data.py, fuentes FRED IMF PCPS + PIB de socios).
+    # El control de commodities Y de demanda externa absorben los factores que
+    # confunden la relacion TRM->exportaciones. Hallazgo: con ambos controles la
+    # elasticidad de exportaciones a la TRM es estadisticamente cero; los motores
+    # son la demanda externa y los precios de commodities.
+    com_path = ROOT / "data_processed" / "commodities_quarterly.csv"
+    fd_path = ROOT / "data_processed" / "foreign_demand_quarterly.csv"
+    if com_path.exists() and fd_path.exists():
+        cm = pd.read_csv(com_path)
+        fd = pd.read_csv(fd_path)
+        merged = (
+            df.merge(cm[["period", "commodity_idx"]], on="period", how="inner")
+              .merge(fd[["period", "foreign_demand_idx"]], on="period", how="inner")
+              .sort_values("period").reset_index(drop=True)
+        )
         m_defl = merged["gdp_nominal_cop_billion"] / merged["gdp_real_cop_billion"]
         m_trm_real = merged["trm_avg_cop_per_usd"] / m_defl
-        full = pd.DataFrame({
+        ctrl = pd.DataFrame({
             "period": merged["period"],
             "dln_x": _yoy_dln(merged["exports_real_cop_billion"]),
             "dln_trm_real": _yoy_dln(m_trm_real),
-            "dln_oil": _yoy_dln(merged["brent"]),
             "dln_com": _yoy_dln(merged["commodity_idx"]),
-        })
-        # dropna SEPARADO por regresion: el indice commodity solo llega a 2016,
-        # pero Brent (FRED) llega al presente. Compartir el dropna truncaria la
-        # regresion de petroleo a 2016.
-        oil = full.dropna(subset=["dln_x", "dln_trm_real", "dln_oil"]).reset_index(drop=True)
-        idx = full.dropna(subset=["dln_x", "dln_trm_real", "dln_com"]).reset_index(drop=True)
-        if len(oil) >= 10:
-            X_oil = np.column_stack([np.ones(len(oil)), oil["dln_trm_real"], oil["dln_oil"]])
-            exp_oil = _ols(oil["dln_x"].to_numpy(), X_oil)
-            X_com = np.column_stack([np.ones(len(idx)), idx["dln_trm_real"], idx["dln_com"]])
-            exp_com = _ols(idx["dln_x"].to_numpy(), X_com)
-            results["export_with_commodity_control"] = {
-                "sample_oil": f"{oil['period'].iloc[0]}-{oil['period'].iloc[-1]}",
-                "n_oil": exp_oil["n"],
-                "sample_index": f"{idx['period'].iloc[0]}-{idx['period'].iloc[-1]}",
-                "n_index": exp_com["n"],
-                "eta_export_q_oil": float(exp_oil["beta"][1]),
-                "eta_export_q_oil_se": float(exp_oil["se"][1]),
-                "beta_oil": float(exp_oil["beta"][2]),
-                "r2_oil": exp_oil["r2"],
-                "eta_export_q_index": float(exp_com["beta"][1]),
-                "eta_export_q_index_se": float(exp_com["se"][1]),
-                "r2_index": exp_com["r2"],
+            "dln_ydem": _yoy_dln(merged["foreign_demand_idx"]),
+        }).dropna().reset_index(drop=True)
+        if len(ctrl) >= 10:
+            yx = ctrl["dln_x"].to_numpy()
+            X_com = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_com"]])
+            exp_com = _ols(yx, X_com)
+            X_full = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_com"], ctrl["dln_ydem"]])
+            exp_full = _ols(yx, X_full)
+            results["export_full_controls"] = {
+                "sample": f"{ctrl['period'].iloc[0]}-{ctrl['period'].iloc[-1]}",
+                "n": exp_full["n"],
+                "eta_export_q_com": float(exp_com["beta"][1]),
+                "eta_export_q_com_se": float(exp_com["se"][1]),
+                "r2_com": exp_com["r2"],
+                "eta_export_q_full": float(exp_full["beta"][1]),
+                "eta_export_q_full_se": float(exp_full["se"][1]),
+                "beta_commodity": float(exp_full["beta"][2]),
+                "beta_foreign_demand": float(exp_full["beta"][3]),
+                "beta_foreign_demand_se": float(exp_full["se"][3]),
+                "r2_full": exp_full["r2"],
             }
 
     return results
@@ -192,11 +196,13 @@ def main() -> None:
     rob = r["robustness_nominal_trm"]
     print("\n[3] Robustez con TRM nominal:")
     print(f"    eta_import_y = {_fmt(rob['eta_import_y'])}, eta_import_q = {_fmt(rob['eta_import_q'])}, eta_export_q = {_fmt(rob['eta_export_q'])}")
-    cc = r.get("export_with_commodity_control")
+    cc = r.get("export_full_controls")
     if cc:
-        print("\n[4] Exportaciones CON control de commodities (corrige el signo de [2])")
-        print(f"    control Brent  (FRED, {cc['sample_oil']}, n={cc['n_oil']}): eta_export_q = {_fmt(cc['eta_export_q_oil'])}  (SE {cc['eta_export_q_oil_se']:.4f})  beta_oil={_fmt(cc['beta_oil'])}  R2={cc['r2_oil']:.3f}")
-        print(f"    control indice (Pink Sheet, {cc['sample_index']}, n={cc['n_index']}): eta_export_q = {_fmt(cc['eta_export_q_index'])}  (SE {cc['eta_export_q_index_se']:.4f})  R2={cc['r2_index']:.3f}")
+        print(f"\n[4] Exportaciones con set de control COMPLETO ({cc['sample']}, n={cc['n']})")
+        print(f"    + commodity:           eta_export_q = {_fmt(cc['eta_export_q_com'])}  (SE {cc['eta_export_q_com_se']:.4f})  R2={cc['r2_com']:.3f}")
+        print(f"    + commodity + Y*ext:   eta_export_q = {_fmt(cc['eta_export_q_full'])}  (SE {cc['eta_export_q_full_se']:.4f})  R2={cc['r2_full']:.3f}")
+        print(f"      beta_commodity = {_fmt(cc['beta_commodity'])}   beta_demanda_externa = {_fmt(cc['beta_foreign_demand'])} (SE {cc['beta_foreign_demand_se']:.4f})")
+        print("    -> con control completo, eta_export_q ~ 0 (no signif.); manda la demanda externa")
 
     print("\nComparacion con calibracion actual (parameters.csv):")
     print("    eta_import_y: 1.35 (actual)")
