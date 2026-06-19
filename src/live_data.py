@@ -9,6 +9,8 @@ sigue usando el snapshot del repositorio.
 from __future__ import annotations
 
 import io
+import logging
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import TypedDict
@@ -17,6 +19,8 @@ import pandas as pd
 
 
 HTTP_TIMEOUT_SECONDS = 8
+
+_logger = logging.getLogger(__name__)
 
 
 class LiveSeries(TypedDict):
@@ -34,7 +38,20 @@ class LiveSnapshot(TypedDict):
     status: dict[str, dict[str, str | bool]]
 
 
+class FetchError(Exception):
+    """Error de descarga clasificado en categoria (timeout, http, parse, network)."""
+
+    def __init__(self, category: str, message: str):
+        super().__init__(message)
+        self.category = category
+
+
 def _http_get_text(url: str) -> str:
+    """Descarga texto desde URL clasificando errores por categoria.
+
+    Raises:
+        FetchError: con category in {timeout, http_status, network, decode}.
+    """
     request = urllib.request.Request(
         url,
         headers={
@@ -42,8 +59,21 @@ def _http_get_text(url: str) -> str:
             "Accept": "text/csv,*/*",
         },
     )
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-        return response.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        raise FetchError("http_status", f"HTTP {exc.code} en {url}") from exc
+    except urllib.error.URLError as exc:
+        reason = getattr(exc, "reason", str(exc))
+        category = "timeout" if "timed out" in str(reason).lower() else "network"
+        raise FetchError(category, f"URLError ({reason}) en {url}") from exc
+    except Exception as exc:  # noqa: BLE001 - belt and suspenders
+        raise FetchError("network", f"Error inesperado ({type(exc).__name__}) en {url}") from exc
+    try:
+        return raw.decode("utf-8", errors="replace")
+    except Exception as exc:  # noqa: BLE001
+        raise FetchError("decode", f"Decode error en {url}") from exc
 
 
 def fetch_trm() -> LiveSeries | None:
@@ -52,6 +82,7 @@ def fetch_trm() -> LiveSeries | None:
         url = "https://www.datos.gov.co/resource/32sa-8pi3.csv?$limit=5&$order=vigenciadesde%20DESC"
         df = pd.read_csv(io.StringIO(_http_get_text(url)))
         if df.empty or "valor" not in df.columns:
+            _logger.warning("fetch_trm: payload sin columna 'valor' o vacio")
             return None
         latest = df.iloc[0]
         return LiveSeries(
@@ -60,22 +91,40 @@ def fetch_trm() -> LiveSeries | None:
             date=str(latest["vigenciadesde"])[:10],
             source="Datos Abiertos Colombia / Superfinanciera",
         )
-    except Exception:
+    except FetchError as exc:
+        _logger.warning("fetch_trm: fallo %s: %s", exc.category, exc)
+        return None
+    except Exception as exc:  # noqa: BLE001
+        _logger.warning("fetch_trm: error de parsing: %s", exc)
         return None
 
 
 def _fetch_fred_csv(series_id: str) -> tuple[float, str] | None:
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    df = pd.read_csv(io.StringIO(_http_get_text(url)))
+    try:
+        raw = _http_get_text(url)
+    except FetchError as exc:
+        _logger.warning("FRED %s: %s", series_id, exc)
+        return None
+    try:
+        df = pd.read_csv(io.StringIO(raw))
+    except Exception as exc:  # noqa: BLE001 - pandas read_csv puede lanzar varios
+        _logger.warning("FRED %s: CSV malformado (%s)", series_id, exc)
+        return None
     if df.shape[1] < 2 or df.empty:
+        _logger.warning("FRED %s: payload vacio o con <2 columnas", series_id)
         return None
     df = df.copy()
     df.columns = [str(c).strip().lower() for c in df.columns]
+    if "date" not in df.columns:
+        _logger.warning("FRED %s: sin columna 'date'", series_id)
+        return None
     value_col = next((c for c in df.columns if c != "date"), None)
     if value_col is None:
         return None
     df = df[df[value_col].astype(str).str.strip() != "."]
     if df.empty:
+        _logger.warning("FRED %s: serie vacia despues de filtrar nulos", series_id)
         return None
     latest = df.iloc[-1]
     try:

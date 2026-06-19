@@ -115,23 +115,48 @@ def parse_fed_h15(path: Path) -> dict:
     return fallback
 
 
+# Snapshot values from Banco de la Republica - Informe de Balanza de Pagos IV-2025.
+# Source: https://www.banrep.gov.co/es/publicaciones-investigaciones/informe-balanza-pagos/cuarto-trimestre-2025
+# Captured: 2026-04-24. Update when next BoP report is published.
+BANREP_BOP_SNAPSHOT_2025Q4: dict[str, float] = {
+    "policy_rate_pct_fallback": 11.25,                  # Tasa de politica BanRep
+    "current_account_usd_m": -3912.0,                   # CA trimestral
+    "current_account_pct_gdp": -3.1,                    # CA / PIB trimestral
+    "financial_account_inflow_usd_m": 3471.0,           # KA trimestral neto
+    "financial_account_pct_gdp": 2.7,                   # KA / PIB trimestral
+    "errors_omissions_usd_m": 441.0,                    # Errores y omisiones
+    "trade_services_balance_usd_m": -4457.0,            # Balanza bienes + servicios
+    "factor_income_balance_usd_m": -3680.0,             # Renta de los factores
+    "current_transfers_usd_m": 4224.0,                  # Transferencias corrientes
+}
+
+
 def parse_banrep_bop(path: Path) -> dict:
+    """Extrae la tasa de politica del HTML del BanRep y combina con snapshot
+    estatico de la balanza de pagos IV-2025.
+
+    Solo la tasa de politica se intenta extraer del HTML (es robusto con regex).
+    El resto vienen del snapshot ``BANREP_BOP_SNAPSHOT_2025Q4`` que se captura
+    manualmente del informe trimestral. Refrescar cuando salga el siguiente
+    informe.
+    """
     text = path.read_text(encoding="utf-8", errors="ignore")
     clean = re.sub(r"&nbsp;|\s+", " ", text)
     policy_match = re.search(r"Tasa actual:\s*([0-9]+,[0-9]+)%", clean)
+    snap = BANREP_BOP_SNAPSHOT_2025Q4
     return {
-        "policy_rate_pct": float(policy_match.group(1).replace(",", ".")) if policy_match else 11.25,
+        "policy_rate_pct": float(policy_match.group(1).replace(",", ".")) if policy_match else snap["policy_rate_pct_fallback"],
         "policy_rate_reference_date": "2026-04-01",
-        "current_account_usd_m": -3912.0,
-        "current_account_pct_gdp": -3.1,
-        "financial_account_inflow_usd_m": 3471.0,
-        "financial_account_pct_gdp": 2.7,
-        "errors_omissions_usd_m": 441.0,
-        "trade_services_balance_usd_m": -4457.0,
-        "factor_income_balance_usd_m": -3680.0,
-        "current_transfers_usd_m": 4224.0,
+        "current_account_usd_m": snap["current_account_usd_m"],
+        "current_account_pct_gdp": snap["current_account_pct_gdp"],
+        "financial_account_inflow_usd_m": snap["financial_account_inflow_usd_m"],
+        "financial_account_pct_gdp": snap["financial_account_pct_gdp"],
+        "errors_omissions_usd_m": snap["errors_omissions_usd_m"],
+        "trade_services_balance_usd_m": snap["trade_services_balance_usd_m"],
+        "factor_income_balance_usd_m": snap["factor_income_balance_usd_m"],
+        "current_transfers_usd_m": snap["current_transfers_usd_m"],
         "bop_reference_period": "2025Q4",
-        "gdp_bp_reference_usd_m": 3912.0 / 0.031,
+        "gdp_bp_reference_usd_m": snap["current_account_usd_m"] / snap["current_account_pct_gdp"] * 100.0,
     }
 
 
