@@ -53,6 +53,39 @@ CSS = """
   .block-container { max-width: 1540px; padding-top: 1.2rem; padding-bottom: 3rem; }
   div[data-testid="stMetric"] { border: 1px solid #d9e0ea; border-radius: 8px; padding: 12px 14px; }
   div[data-testid="stMetricLabel"] { color: #667085; }
+
+  /* --- Responsive: solo aplica en viewports angostos (movil). Desktop intacto. --- */
+  @media (max-width: 640px) {
+    /* Aprovechar el ancho: menos padding lateral en movil */
+    .block-container { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+
+    /* Apilar verticalmente cualquier fila de columnas (panel izq/der, filas de metricas) */
+    div[data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 0.4rem !important; }
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+      min-width: 100% !important;
+      flex: 1 1 100% !important;
+    }
+
+    /* Metricas mas compactas al apilarse */
+    div[data-testid="stMetric"] { padding: 8px 10px; }
+    div[data-testid="stMetricValue"] { font-size: 1.35rem; }
+
+    /* Tabs: scroll horizontal con fuente menor en vez de envolver en bloque ilegible */
+    div[data-testid="stTabs"] div[data-baseweb="tab-list"] {
+      overflow-x: auto !important;
+      flex-wrap: nowrap !important;
+      scrollbar-width: thin;
+    }
+    div[data-testid="stTabs"] div[data-baseweb="tab-list"] button[data-baseweb="tab"] {
+      flex: 0 0 auto !important;
+      font-size: 0.82rem !important;
+      padding-left: 0.55rem !important;
+      padding-right: 0.55rem !important;
+    }
+
+    /* Titulo principal mas chico para no comerse la pantalla */
+    h1 { font-size: 1.5rem !important; }
+  }
 </style>
 """
 
