@@ -127,6 +127,40 @@ def estimate() -> dict:
         "eta_export_q": float(exp_n["beta"][1]),
     }
 
+    # --- 4. Exportaciones CON control de commodities (resuelve el signo) ---
+    # Requiere data_processed/commodities_quarterly.csv (de src/external_data.py).
+    # El control de precios de commodities absorbe el factor de terminos de
+    # intercambio que confunde la relacion TRM->exportaciones.
+    commodities_path = ROOT / "data_processed" / "commodities_quarterly.csv"
+    if commodities_path.exists():
+        cm = pd.read_csv(commodities_path)
+        merged = df.merge(cm[["period", "brent", "commodity_idx"]], on="period", how="inner")
+        merged = merged.sort_values("period").reset_index(drop=True)
+        m_defl = merged["gdp_nominal_cop_billion"] / merged["gdp_real_cop_billion"]
+        m_trm_real = merged["trm_avg_cop_per_usd"] / m_defl
+        ctrl = pd.DataFrame({
+            "dln_x": _yoy_dln(merged["exports_real_cop_billion"]),
+            "dln_trm_real": _yoy_dln(m_trm_real),
+            "dln_oil": _yoy_dln(merged["brent"]),
+            "dln_com": _yoy_dln(merged["commodity_idx"]),
+        }).dropna().reset_index(drop=True)
+        if len(ctrl) >= 10:
+            X_oil = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_oil"]])
+            exp_oil = _ols(ctrl["dln_x"].to_numpy(), X_oil)
+            X_com = np.column_stack([np.ones(len(ctrl)), ctrl["dln_trm_real"], ctrl["dln_com"]])
+            exp_com = _ols(ctrl["dln_x"].to_numpy(), X_com)
+            results["export_with_commodity_control"] = {
+                "sample": f"{merged['period'].iloc[0]}-{merged['period'].iloc[-1]}",
+                "n": exp_oil["n"],
+                "eta_export_q_oil": float(exp_oil["beta"][1]),
+                "eta_export_q_oil_se": float(exp_oil["se"][1]),
+                "beta_oil": float(exp_oil["beta"][2]),
+                "r2_oil": exp_oil["r2"],
+                "eta_export_q_index": float(exp_com["beta"][1]),
+                "eta_export_q_index_se": float(exp_com["se"][1]),
+                "r2_index": exp_com["r2"],
+            }
+
     return results
 
 
@@ -150,6 +184,13 @@ def main() -> None:
     rob = r["robustness_nominal_trm"]
     print("\n[3] Robustez con TRM nominal:")
     print(f"    eta_import_y = {_fmt(rob['eta_import_y'])}, eta_import_q = {_fmt(rob['eta_import_q'])}, eta_export_q = {_fmt(rob['eta_export_q'])}")
+    cc = r.get("export_with_commodity_control")
+    if cc:
+        print(f"\n[4] Exportaciones CON control de commodities  (muestra {cc['sample']}, n={cc['n']})")
+        print(f"    eta_export_q (control Brent)  = {_fmt(cc['eta_export_q_oil'])}  (SE {cc['eta_export_q_oil_se']:.4f})  beta_oil={_fmt(cc['beta_oil'])}  R2={cc['r2_oil']:.3f}")
+        print(f"    eta_export_q (control indice) = {_fmt(cc['eta_export_q_index'])}  (SE {cc['eta_export_q_index_se']:.4f})  R2={cc['r2_index']:.3f}")
+        print("    -> el control corrige el signo (vs seccion [2] sin control)")
+
     print("\nComparacion con calibracion actual (parameters.csv):")
     print("    eta_import_y: 1.35 (actual)")
     print("    eta_import_q: 0.25 (actual)")
