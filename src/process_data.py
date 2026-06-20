@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 import io
 import re
 from pathlib import Path
 
 import pandas as pd
 
-from mf_model import DEFAULT_PARAMETERS, SCENARIO_MECHANISMS, scenario_table, validate_signs
+from mf_model import DEFAULT_PARAMETERS, MOBILITY_OPTIONS, SCENARIO_MECHANISMS, scenario_table, validate_signs
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -224,8 +223,11 @@ def build_calibration() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         "reserves_reference_date": "2026-03",
         "risk_premium_pct": 8.41,
         "risk_premium_reference_date": "2026-04-15",
-        "oil_brent_usd_per_barrel": 113.44,
-        "oil_reference_date": "2026-04-22",
+        # Promedio trimestral 2026Q2 de la serie Brent del propio repo
+        # (commodities_quarterly.csv, FRED DCOILBRENTEU). El badge en vivo lo
+        # sobrescribe con el dato diario de FRED cuando hay red.
+        "oil_brent_usd_per_barrel": 104.55,
+        "oil_reference_date": "2026-Q2 (prom., FRED DCOILBRENTEU)",
         "terms_of_trade_index": 125.64,
         "terms_of_trade_reference_date": "2026-01",
         "fiscal_deficit_gnc_cop_billion": -117807.0,
@@ -260,12 +262,12 @@ def build_calibration() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     data_dictionary().to_csv(OUT / "data_dictionary.csv", index=False)
 
     scenarios_both = pd.concat(
-        [scenario_table(calibration, mobility=m) for m in ("perfecta", "imperfecta")],
+        [scenario_table(calibration, mobility=m) for m in MOBILITY_OPTIONS],
         ignore_index=True,
     )
     scenarios_both.to_csv(OUTPUTS / "scenario_results.csv", index=False)
     tests_both = pd.concat(
-        [validate_signs(calibration, mobility=m) for m in ("perfecta", "imperfecta")],
+        [validate_signs(calibration, mobility=m) for m in MOBILITY_OPTIONS],
         ignore_index=True,
     )
     tests_both.to_csv(OUTPUTS / "validation_tests.csv", index=False)

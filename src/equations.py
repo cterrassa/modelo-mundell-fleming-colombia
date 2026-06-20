@@ -67,7 +67,6 @@ def is_identity_rows(
     calibration: Mapping[str, float],
 ) -> pd.DataFrame:
     """Identidad Y = C + I + G + NX + residuo en base y escenario."""
-    c = _components(calibration)
     rows = [
         _row("Y (PIB real)", "Y", base_result["gdp_real_cop_billion"], sim_result["gdp_real_cop_billion"]),
         _row("C (consumo privado)", "C0(1+a%) + mpc(Y-T)",

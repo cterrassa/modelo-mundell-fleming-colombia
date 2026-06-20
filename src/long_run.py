@@ -63,8 +63,7 @@ def simulate_long_run(
     rate = b["rate0"] + _bp(s.foreign_rate_bp) + _bp(s.risk_premium_bp)
     rate_delta = rate - b["rate0"]
 
-    y = b["y0"]
-    delta_y_pct = 0.0
+    y = b["y0"]  # en largo plazo Y vuelve a Y_n (sin desviacion)
 
     tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
     c = b["c0"] * (1.0 + _pct(s.consumption_autonomous_pct)) + params["mpc"] * (-tax_change)

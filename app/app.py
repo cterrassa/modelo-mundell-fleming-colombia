@@ -22,6 +22,10 @@ from long_run import simulate_long_run  # noqa: E402
 import equations as eqs  # noqa: E402
 
 
+# Ancho del barrido de sensibilidad de la proyeccion (magnitud del choque ±%).
+# Referencia ~2 SE relativos de eta_import_y (2*0.18/2.70 ~ 13%).
+SENSITIVITY_PCT = 13.0
+
 MOBILITY_LABELS = {
     "perfecta": "Flexible + movilidad perfecta",
     "imperfecta": "Flexible + movilidad imperfecta (Colombia)",
@@ -424,10 +428,31 @@ def ad_as_figure(
     return plot_theme(fig, 460)
 
 
+# Polaridad por variable: True = "subir es mejora" (verde si sube), False =
+# "subir es deterioro/depreciacion" (rojo si sube), None = ambiguo (gris).
+# Asi el color respeta la convencion del caption (verde=mejora) en vez de
+# colorear por el signo crudo del valor.
+IMPACT_POLARITY = {
+    "TRM": False,
+    "Tipo cambio real": False,
+    "PIB real": True,
+    "Cuenta corriente": True,
+    "Tasa domestica": None,
+}
+
+
+def _impact_color(variable: str, value: float) -> str:
+    good_if_up = IMPACT_POLARITY.get(variable)
+    if abs(value) < 1e-9 or good_if_up is None:
+        return "#94a3b8"
+    is_good = (value > 0) == good_if_up
+    return "#0f9f8f" if is_good else "#dc2626"
+
+
 def impact_figure(calibration: dict[str, float], base_result: dict[str, float], sim_result: dict[str, float]) -> go.Figure:
     df = curves.impact_rows(calibration, base_result, sim_result)
     df["texto"] = df.apply(lambda r: f"{fmt_delta(r['impacto'], 2)} {r['unidad']}", axis=1)
-    colors = ["#dc2626" if x > 0 else "#0f9f8f" if x < 0 else "#94a3b8" for x in df["impacto"]]
+    colors = [_impact_color(v, x) for v, x in zip(df["variable"], df["impacto"])]
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
@@ -905,7 +930,11 @@ with right:
         st.dataframe(display_table, width="stretch", hide_index=True)
 
         st.subheader("Escenarios preconfigurados")
-        scenario_view = scenarios_df.copy()
+        st.caption(f"Tabla para el regimen seleccionado: **{MOBILITY_LABELS[mobility]}**.")
+        if "mobility" in scenarios_df.columns:
+            scenario_view = scenarios_df[scenarios_df["mobility"] == mobility].drop(columns=["mobility"]).copy()
+        else:
+            scenario_view = scenarios_df.copy()
         numeric_cols = scenario_view.select_dtypes(include="number").columns
         for col in numeric_cols:
             scenario_view[col] = scenario_view[col].map(lambda x: fmt(x, 2))
@@ -989,10 +1018,21 @@ with right:
             help="Cada escenario aplica un choque sostenido durante 5 anios.",
         )
         st.caption(PROJECTION_SCENARIOS[proj_scenario_name].description)
+        if "MFMP" in proj_scenario_name:
+            st.warning(
+                "**Proxy ilustrativo — NO son cifras oficiales del MHCP.** La senda usa supuestos "
+                "consistentes con BanRep y FMI WEO. Para simular el MFMP oficial, reemplaza "
+                "`data_processed/mfmp_proxy_scenario.csv` con las cifras del documento publicado."
+            )
 
         try:
             quarterly_df = pd.read_csv(ROOT / "data_processed" / "quarterly_master.csv")
-            last_observed_year = int(quarterly_df["year"].dropna().max())
+            # Ultimo anio COMPLETO (4 trimestres). Si el DANE acaba de publicar un
+            # anio parcial (p.ej. 2026Q1), no lo tomamos como ultimo observado para
+            # no anualizar un anio incompleto (ver _annualize_historical).
+            _q_por_anio = quarterly_df.dropna(subset=["year"]).groupby("year")["quarter"].nunique()
+            _anios_completos = _q_por_anio[_q_por_anio >= 4].index
+            last_observed_year = int(max(_anios_completos)) if len(_anios_completos) else int(quarterly_df["year"].dropna().max())
             projection_df = project_scenario(
                 calibration,
                 proj_scenario_name,
@@ -1025,13 +1065,15 @@ with right:
             )
 
             st.divider()
-            st.subheader("Trayectoria proyectada con sensibilidad ±13%")
+            st.subheader(f"Trayectoria proyectada con sensibilidad ±{SENSITIVITY_PCT:.0f}%")
             st.caption(
-                "**Sensibilidad, NO banda de confianza estadistica.** Las trayectorias 'low' y 'high' aplican el "
-                "escenario con ±13% del shock anual. Ese 13% no es arbitrario: es ~2 errores estandar relativos de "
-                "la elasticidad mejor identificada en la calibracion OLS (eta_import_y = 2.70, SE 0.18). Asi la banda "
-                "refleja la incertidumbre econometrica del parametro dominante, no un numero redondo. No es Monte "
-                "Carlo ni intervalo bayesiano: es analisis de sensibilidad deterministico."
+                f"**Barrido de sensibilidad sobre la MAGNITUD del choque, NO una banda de confianza estadistica.** "
+                f"Las trayectorias 'alta' y 'baja' re-aplican el escenario con la magnitud de cada choque escalada "
+                f"±{SENSITIVITY_PCT:.0f}%. El valor {SENSITIVITY_PCT:.0f}% se eligio como referencia de la incertidumbre "
+                f"de calibracion (del orden de ~2 errores estandar relativos de la elasticidad mejor identificada, "
+                f"eta_import_y = 2.70, SE 0.18 -> ~13%), pero se aplica a la magnitud del choque, no se propaga "
+                f"formalmente el parametro. No es Monte Carlo ni intervalo bayesiano: es analisis de sensibilidad "
+                f"deterministico."
             )
 
             sens = project_with_sensitivity(
@@ -1040,6 +1082,7 @@ with right:
                 parameters=params,
                 mobility=mobility,
                 base_year=last_observed_year,
+                sensitivity_pct=SENSITIVITY_PCT,
             )
 
             variable_options = {
@@ -1060,13 +1103,13 @@ with right:
             years = sens["central"]["year"]
             fig_sens.add_trace(go.Scatter(
                 x=years, y=sens["high"][sel_var], mode="lines",
-                name="High (+25%)",
+                name=f"Alta (+{SENSITIVITY_PCT:.0f}%)",
                 line={"color": "rgba(220,38,38,0.3)", "width": 1},
                 showlegend=True,
             ))
             fig_sens.add_trace(go.Scatter(
                 x=years, y=sens["low"][sel_var], mode="lines",
-                name="Low (-25%)",
+                name=f"Baja (-{SENSITIVITY_PCT:.0f}%)",
                 line={"color": "rgba(220,38,38,0.3)", "width": 1},
                 fill="tonexty", fillcolor="rgba(220,38,38,0.12)",
                 showlegend=True,

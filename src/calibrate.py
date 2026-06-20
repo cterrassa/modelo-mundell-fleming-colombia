@@ -30,7 +30,6 @@ Run: python src/calibrate.py
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 import numpy as np
@@ -204,10 +203,12 @@ def main() -> None:
         print(f"      beta_commodity = {_fmt(cc['beta_commodity'])}   beta_demanda_externa = {_fmt(cc['beta_foreign_demand'])} (SE {cc['beta_foreign_demand_se']:.4f})")
         print("    -> con control completo, eta_export_q ~ 0 (no signif.); manda la demanda externa")
 
-    print("\nComparacion con calibracion actual (parameters.csv):")
-    print("    eta_import_y: 1.35 (actual)")
-    print("    eta_import_q: 0.25 (actual)")
-    print("    eta_export_q: 0.45 (actual)")
+    # Comparacion contra la calibracion VIGENTE, leida en vivo de DEFAULT_PARAMETERS
+    # (no hardcodear: evita que esta seccion se desincronice tras recalibrar).
+    from mf_model import DEFAULT_PARAMETERS as _D
+    print("\nCalibracion vigente (mf_model.DEFAULT_PARAMETERS / parameters.csv):")
+    for k in ("eta_import_y", "eta_import_q", "eta_export_q"):
+        print(f"    {k}: {_D[k]} (vigente)")
 
 
 if __name__ == "__main__":

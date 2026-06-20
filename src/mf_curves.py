@@ -216,9 +216,7 @@ def ad_as_data(
     kappa_M = params["money_rate_sensitivity"]
     kappa_Y = params["output_rate_sensitivity"]
 
-    base_rate = float(base_result["policy_rate_pct"])
     sim_rate = float(sim_result["policy_rate_pct"])
-    rate_delta_base = base_rate - rate0
     rate_delta_sim = sim_rate - rate0
 
     money_pct_sim = shock_value(shock, "money_supply_pct")
@@ -256,7 +254,6 @@ def comparison_rows(
     sim_result: Mapping[str, float],
 ) -> pd.DataFrame:
     """Tabla legible para el tab Base vs simulado."""
-    c = base_components(calibration)
     rows = [
         ("TRM", "COP/USD", base_result["trm_cop_per_usd"], sim_result["trm_cop_per_usd"], "Sube = peso depreciado."),
         (

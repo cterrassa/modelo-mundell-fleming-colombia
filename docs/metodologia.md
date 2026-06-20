@@ -102,7 +102,29 @@ trazan usando la tasa endogena que el solver encontro. La unica diferencia
 con perfecta es la posicion de las curvas; el plano y la convencion son
 identicos.
 
-### Choques (Shock dataclass, 8 dimensiones)
+### Tipo de cambio fijo
+
+Tercer regimen: el banco central defiende una paridad, de modo que la TRM
+queda anclada (no se mueve) y la oferta monetaria se vuelve **endogena** (la
+autoridad compra/vende reservas para sostener el peg). La tasa local queda
+anclada por UIP (`r = r* + prima`). El producto se determina por la cruz
+keynesiana con M endogena, en solucion cerrada. Resultados clave:
+
+- **Politica fiscal: efectiva** (mueve Y) — no hay apreciacion que la
+  compense, a diferencia del caso flexible.
+- **Politica monetaria autonoma: inefectiva** — el banco central no controla M
+  de forma independiente mientras defienda la paridad.
+- **TRM constante** ante cualquier choque (la defensa del peg).
+
+Junto con los dos casos flexibles, los tres regimenes ilustran las esquinas de
+la **trinidad imposible** (no se pueden tener simultaneamente tipo de cambio
+fijo, movilidad de capitales y politica monetaria autonoma).
+
+### Choques (Shock dataclass, 10 dimensiones)
+
+Choques autonomos a la IS:
+- `consumption_autonomous_pct` (a, choque a C0, %)
+- `investment_autonomous_pct` (h, choque a I0, %)
 
 Politica domestica:
 - `government_spending_pct` (G, % del G base)
@@ -154,9 +176,9 @@ La matriz completa de fuentes y URLs esta en `data_processed/source_matrix.csv`.
 
 ## Validacion
 
-`outputs/validation_tests.csv` contiene 17 pruebas de signos contra teoria
-(8 perfecta + 9 imperfecta). Todas deben pasar tras cualquier cambio al
-modelo:
+`outputs/validation_tests.csv` contiene **22 pruebas de signos** contra teoria
+(9 perfecta + 8 imperfecta + 5 fijo). Corren como pytest en
+`tests/test_signs.py` y deben pasar tras cualquier cambio al modelo:
 
 - Subida prima de riesgo deprecia
 - Subida tasa Fed deprecia
@@ -165,6 +187,8 @@ modelo:
 - Expansion monetaria deprecia y sube Y
 - Perfecta: expansion fiscal no mueve Y, aprecia, tasa Banrep no efecto
 - Imperfecta: subida tasa Banrep aprecia, expansion fiscal sube Y
+- Fijo: fiscal sube Y, monetaria autonoma no mueve Y, TRM constante,
+  subida tasa Fed reduce Y (via inversion), mejora externa sube Y
 
 Verificacion adicional implicita: la curva IS\* construida para el chart
 debe pasar exactamente por el equilibrio que devuelve `simulate()`. Esta
@@ -172,12 +196,18 @@ consistencia se valida automaticamente cada vez que se renderiza el chart.
 
 ## Proyeccion a 5 anos
 
-Module `src/mf_projection.py`. Cada ano aplica un choque sostenido de
-exogenos sobre la calibracion base y resuelve el equilibrio estatico. Los
-choques no se acumulan entre anos; cada periodo es independiente.
+Module `src/mf_projection.py`. Cada ano aplica un choque sobre la calibracion
+base y resuelve el equilibrio estatico. Los escenarios recurrentes **acumulan
+linealmente** el choque: el ano N aplica N veces el choque anual (p.ej. +5% G
+recurrente da +5%, +10%, ..., +25% en el ano 5). El escenario "Base" no aplica
+choque.
 
-Escenarios predefinidos: Base, Expansion fiscal sostenida, Subida tasa Fed
-sostenida, Ciclo petrolero adverso, Subida prima de riesgo.
+Escenarios predefinidos: Base (sin choques), MFMP proxy (BanRep + FMI WEO),
+Expansion fiscal recurrente, Subida tasa Fed recurrente, Ciclo petrolero
+adverso recurrente, Subida prima de riesgo recurrente. El escenario **MFMP**
+deja habilitada la simulacion de una senda fiscal de mediano plazo; usa un
+proxy claramente etiquetado (no cifras oficiales del MHCP) y es reemplazable
+editando `data_processed/mfmp_proxy_scenario.csv`.
 
 La tabla consolidada en la app combina:
 - 5 anos historicos: suma anual de los 4 trimestres de `quarterly_master.csv`.

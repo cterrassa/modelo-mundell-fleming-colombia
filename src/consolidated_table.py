@@ -51,9 +51,15 @@ STOCK_VARIABLES = (
 
 
 def _annualize_historical(quarterly_df: pd.DataFrame, year: int) -> dict[str, float | None]:
-    """Suma flujos trimestrales y promedia variables stock para un anio."""
+    """Suma flujos trimestrales y promedia variables stock para un anio.
+
+    Solo anualiza si el anio esta COMPLETO (4 trimestres). Un anio parcial (p.ej.
+    cuando el DANE acaba de publicar 2026Q1) NO se suma como anual: sumar 1-3
+    trimestres subregistraria el PIB ~4x y contaminaria el anclaje de las
+    proyecciones. En ese caso devuelve {} y el anio se trata como no observado.
+    """
     sub = quarterly_df[quarterly_df["year"] == year]
-    if sub.empty:
+    if sub.empty or sub["quarter"].nunique() < QUARTERS_PER_YEAR:
         return {}
     out: dict[str, float | None] = {}
     for col in FLOW_VARIABLES_QUARTERLY:

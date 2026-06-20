@@ -246,14 +246,12 @@ def _simulate_fixed_exchange_rate(b: Dict[str, float], s: Shock, p: Mapping[str,
     rate = b["rate0"] + _bp(s.foreign_rate_bp) + _bp(s.risk_premium_bp)
     rate_delta = rate - b["rate0"]
 
-    log_e_change = 0.0  # e fijo en e0
-    q_change = 0.0
+    log_e_change = 0.0  # e fijo en e0 (q_change = 0)
 
     tax_change = _pct(s.tax_pct_of_gdp) * b["y0"]
     nx_aut = _pct(s.nx_autonomous_pct) * b["y0"]
-    oil_export_boost = b["x0"] * p["eta_oil_export"] * _pct(s.oil_price_pct)
 
-    # X depende solo del shock (q=0)
+    # X depende solo del shock de petroleo (q=0 porque e es fijo)
     x = b["x0"] * (1.0 + p["eta_oil_export"] * _pct(s.oil_price_pct))
 
     # I depende de r y h
@@ -285,8 +283,6 @@ def _simulate_fixed_exchange_rate(b: Dict[str, float], s: Shock, p: Mapping[str,
         y = b["y0"]
     else:
         y = autonomous / multiplier_inv
-
-    delta_y_pct = (y / b["y0"] - 1.0) * 100.0
 
     c = c0_shocked + p["mpc"] * (y - b["y0"] - tax_change)
     m = b["m0"] * (1.0 + p["eta_import_y"] * (y / b["y0"] - 1.0))

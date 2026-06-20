@@ -202,17 +202,19 @@ def project_with_sensitivity(
     base_year: int | None = None,
     sensitivity_pct: float = 13.0,
 ) -> dict[str, pd.DataFrame]:
-    """Proyecta el escenario en 3 trayectorias: central, low (-sigma) y high (+sigma).
+    """Proyecta el escenario en 3 trayectorias: central, baja y alta.
 
-    El sensitivity_pct se aplica como factor multiplicativo a cada componente del
-    shock por anio. Es **analisis de sensibilidad**, NO una banda de confianza
-    estadistica ni Monte Carlo.
+    El ``sensitivity_pct`` se aplica como factor multiplicativo a la MAGNITUD de
+    cada componente del choque por anio (no a las elasticidades del modelo). Es un
+    **barrido de sensibilidad sobre la magnitud del choque**, NO una banda de
+    confianza estadistica, NO Monte Carlo, y NO una propagacion formal de la
+    incertidumbre de un parametro.
 
-    El default 13% NO es arbitrario: corresponde a ~2 errores estandar relativos
-    de la elasticidad mejor identificada de la calibracion OLS (eta_import_y =
-    2.70, SE 0.18 -> 2*SE/coef ≈ 13%; ver docs/calibracion_ols.md). Es la
-    incertidumbre econometrica del parametro dominante propagada a la magnitud
-    del choque, lo que da a la banda una interpretacion empirica defendible.
+    El default 13% se eligio como referencia de la incertidumbre de calibracion:
+    es del orden de ~2 errores estandar relativos de la elasticidad mejor
+    identificada (eta_import_y = 2.70, SE 0.18 -> 2*SE/coef ≈ 13%; ver
+    docs/calibracion_ols.md). Sirve como magnitud razonable para el barrido, pero
+    el escalado actua sobre el choque, no sobre eta_import_y.
     """
     if scenario_name not in PROJECTION_SCENARIOS:
         raise KeyError(f"Escenario {scenario_name!r} no esta en PROJECTION_SCENARIOS.")

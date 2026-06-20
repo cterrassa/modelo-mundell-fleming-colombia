@@ -25,8 +25,8 @@ reserves_usd_m,66611.0,observada via proxy publico
 reserves_reference_date,2026-03,metadato
 risk_premium_pct,8.41,observada via proxy publico
 risk_premium_reference_date,2026-04-15,metadato
-oil_brent_usd_per_barrel,113.44,observada via proxy publico
-oil_reference_date,2026-04-22,metadato
+oil_brent_usd_per_barrel,104.55,observada via proxy publico
+oil_reference_date,2026-Q2 prom FRED DCOILBRENTEU,metadato
 terms_of_trade_index,125.64,observada via proxy publico
 terms_of_trade_reference_date,2026-01,metadato
 fiscal_deficit_gnc_cop_billion,-117807.0,observada resumen oficial

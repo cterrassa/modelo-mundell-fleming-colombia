@@ -7,11 +7,13 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
 
 ## Que ofrece
 
-- **Modo dual de movilidad de capitales:**
-  - **Perfecta** (caso canonico): tasa anclada por UIP, politica fiscal
+- **Tres regimenes (esquinas de la trinidad imposible):**
+  - **Flexible + movilidad perfecta** (caso canonico): tasa anclada por UIP, politica fiscal
     no mueve el producto, politica monetaria efectiva. Resolucion en forma cerrada.
-  - **Imperfecta** (calibracion empirica para Colombia): BP con pendiente positiva,
+  - **Flexible + movilidad imperfecta** (calibracion empirica para Colombia): BP con pendiente positiva,
     ajuste de TRM via residual de balanza de pagos, regla de Taylor para Banrep.
+  - **Tipo de cambio fijo**: TRM anclada, M endogena (defensa del peg);
+    politica fiscal efectiva, politica monetaria autonoma inefectiva.
 - **10 sliders de choques** que cubren los choques estandar del modelo y los relevantes para Colombia: a, h, G, T, M, tasa Banrep, tasa
   Fed, prima de riesgo Colombia, Brent, NX autonomo.
 - **Datos en vivo** (TRM Datos Abiertos, Fed funds y Brent FRED) con cache 1 h y
@@ -78,11 +80,14 @@ Detalles en `DEPLOYMENT.md`.
 
 ## Tests
 
+Suite completa (incluye las 22 pruebas de signos en `tests/test_signs.py`):
+
 ```bash
-PYTHONPATH=src python -c "import mf_model, pandas as pd; calib_df = pd.read_csv('data_processed/base_calibration.csv'); calib = {r['variable']: float(r['value']) if str(r['value']).replace('.','').replace('-','').isdigit() else r['value'] for _,r in calib_df.iterrows()}; print(mf_model.validate_signs(calib, mobility='perfecta')); print(mf_model.validate_signs(calib, mobility='imperfecta'))"
+python -m pytest tests/ -q
 ```
 
-Las 17 pruebas de signos deben pasar.
+Las **22 pruebas de signos** (9 perfecta + 8 imperfecta + 5 fijo) y el resto de
+la suite deben pasar tras cualquier cambio al modelo.
 
 Para el smoke test del Streamlit:
 

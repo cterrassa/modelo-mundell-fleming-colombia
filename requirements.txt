@@ -1,6 +1,10 @@
-pandas
-numpy
-openpyxl
-lxml
-streamlit
-plotly
+# Rangos compatibles fijados para que el redeploy en Render sea reproducible.
+# Limite inferior = minimo testeado; limite superior = siguiente major, para
+# evitar que un major nuevo rompa la app en produccion sin cambio de codigo.
+# La app usa st.dataframe(width="stretch") que requiere streamlit >= 1.49.
+streamlit>=1.49,<2
+pandas>=2.2,<4
+numpy>=1.26,<3
+plotly>=5.20,<7
+openpyxl>=3.1,<4
+lxml>=5,<7

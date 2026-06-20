@@ -112,20 +112,26 @@ commodities.
 
 ## Banda de sensibilidad
 
-El default de la banda de proyección (`project_with_sensitivity`) se fijó en
-**±13%**, que corresponde a ~2 errores estándar relativos de la elasticidad
-mejor identificada (`eta_import_y`: 2·0.18/2.70 ≈ 13%). Reemplaza el ±25%
-arbitrario anterior por una magnitud con interpretación econométrica.
+La banda de la proyección (`project_with_sensitivity`) es un **barrido de
+sensibilidad sobre la MAGNITUD del choque**, fijado en **±13%**. Importante: el
+±13% escala la magnitud de cada choque del escenario, **no** las elasticidades
+del modelo; **no** es una propagación formal de la incertidumbre de un
+parámetro ni una banda de confianza estadística. El valor 13% se eligió como
+referencia razonable de la incertidumbre de calibración —del orden de ~2 errores
+estándar relativos de la elasticidad mejor identificada (`eta_import_y`:
+2·0.18/2.70 ≈ 13%)—, reemplazando el ±25% redondo anterior por una magnitud con
+sustento, pero la implementación escala el choque, no el parámetro.
 
 ## Limitaciones declaradas
 
 - Endogeneidad de la TRM no corregida con IV (sería sobre-ingeniería para una
   calibración). Los coeficientes son asociaciones condicionales.
-- La elasticidad de exportaciones controla por precio de commodities pero aún
-  omite demanda externa (PIB de socios comerciales). El fetcher
-  `fetch_partner_gdp_annual()` en `src/external_data.py` deja lista esa serie
-  (World Bank WDI) para una extensión futura; no se incorporó aún por el
-  desajuste de frecuencia (WDI es anual, el panel trimestral).
+- La elasticidad de exportaciones **sí incorpora demanda externa** (PIB real de
+  socios ponderado por exportaciones, vía `build_foreign_demand()` en
+  `src/external_data.py`, fuente FRED): es el hallazgo central (β ≈ +2.2). La
+  limitación residual es que el índice de demanda externa usa solo los 4 socios
+  con PIB trimestral en FRED (EE.UU., Alemania, Brasil, México); China no tiene
+  PIB trimestral curl-able y entra solo vía WDI anual.
 - El control primario de petróleo (FRED Brent) cubre la muestra completa
   2006-2025; el índice commodity ponderado (Pink Sheet) solo llega a 2016 y se
   usa como robustez. El carbón colombiano, café y oro del Pink Sheet quedan
