@@ -1257,4 +1257,7 @@ with right:
             st.dataframe(sources_df, width="stretch", hide_index=True)
 
 
-st.caption("Datos publicos DANE, Banco de la Republica, Superfinanciera/Datos Abiertos y Federal Reserve | Calibracion 2026-04-24")
+st.caption(
+    "Datos publicos DANE, Banco de la Republica, Superfinanciera/Datos Abiertos y Federal Reserve "
+    f"| Calibracion {calibration.get('calibration_date', 'n.d.')}"
+)

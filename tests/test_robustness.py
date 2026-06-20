@@ -130,3 +130,28 @@ def test_perfecta_domestic_rate_no_effect(calibration):
     base = simulate(calibration, Shock(), mobility="perfecta")
     sim = simulate(calibration, Shock(domestic_policy_rate_bp=100.0), mobility="perfecta")
     assert abs(sim["trm_cop_per_usd"] - base["trm_cop_per_usd"]) < 1e-6
+
+
+# ---------- provenance / reproducibilidad del ETL (N-1) ----------
+
+def test_parameters_csv_matches_etl():
+    """parameters.csv debe coincidir con lo que generan las funciones del ETL
+    (valor, clasificacion y nota). Evita que la provenance OLS se desincronice
+    al editar el CSV a mano post-ETL."""
+    import process_data as pdat
+    from mf_model import DEFAULT_PARAMETERS
+
+    committed = pd.read_csv(ROOT / "data_processed" / "parameters.csv").set_index("parameter")
+    for k, v in DEFAULT_PARAMETERS.items():
+        assert k in committed.index, f"Falta {k} en parameters.csv"
+        assert abs(float(committed.loc[k, "value"]) - v) < 1e-9, f"Valor desincronizado en {k}"
+        assert committed.loc[k, "classification"] == pdat._parameter_classification(k), f"Clasificacion desincronizada en {k}"
+        assert committed.loc[k, "note"] == pdat._parameter_note(k), f"Nota desincronizada en {k}"
+
+
+def test_data_dictionary_covers_model_variables():
+    """El diccionario debe documentar las variables sustantivas que el modelo usa."""
+    dd = pd.read_csv(ROOT / "data_processed" / "data_dictionary.csv")
+    documented = set(dd["variable"])
+    for must in ("real_exchange_rate_index", "foreign_rate_pct", "net_exports_real_cop_billion", "terms_of_trade_index"):
+        assert must in documented, f"data_dictionary.csv no documenta {must}"

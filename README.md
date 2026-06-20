@@ -80,14 +80,15 @@ Detalles en `DEPLOYMENT.md`.
 
 ## Tests
 
-Suite completa (incluye las 22 pruebas de signos en `tests/test_signs.py`):
+Suite completa (50 tests). `tests/test_signs.py` ejecuta como aserciones pytest
+los **22 chequeos de signo** (9 perfecta + 8 imperfecta + 5 fijo) sobre los 3
+regimenes:
 
 ```bash
 python -m pytest tests/ -q
 ```
 
-Las **22 pruebas de signos** (9 perfecta + 8 imperfecta + 5 fijo) y el resto de
-la suite deben pasar tras cualquier cambio al modelo.
+Toda la suite debe pasar tras cualquier cambio al modelo.
 
 Para el smoke test del Streamlit:
 

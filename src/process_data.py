@@ -172,7 +172,7 @@ def parse_banrep_bop(path: Path) -> dict:
         "factor_income_balance_usd_m": snap["factor_income_balance_usd_m"],
         "current_transfers_usd_m": snap["current_transfers_usd_m"],
         "bop_reference_period": "2025Q4",
-        "gdp_bp_reference_usd_m": snap["current_account_usd_m"] / snap["current_account_pct_gdp"] * 100.0,
+        "gdp_bp_reference_usd_m": round(snap["current_account_usd_m"] / snap["current_account_pct_gdp"] * 100.0, 2),
     }
 
 
@@ -227,7 +227,7 @@ def build_calibration() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         # (commodities_quarterly.csv, FRED DCOILBRENTEU). El badge en vivo lo
         # sobrescribe con el dato diario de FRED cuando hay red.
         "oil_brent_usd_per_barrel": 104.55,
-        "oil_reference_date": "2026-Q2 (prom., FRED DCOILBRENTEU)",
+        "oil_reference_date": "2026-Q2 prom FRED DCOILBRENTEU",
         "terms_of_trade_index": 125.64,
         "terms_of_trade_reference_date": "2026-01",
         "fiscal_deficit_gnc_cop_billion": -117807.0,
@@ -247,7 +247,7 @@ def build_calibration() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
             {
                 "parameter": k,
                 "value": v,
-                "classification": "supuesto calibrable",
+                "classification": _parameter_classification(k),
                 "note": _parameter_note(k),
             }
             for k, v in DEFAULT_PARAMETERS.items()
@@ -288,7 +288,26 @@ def _classify_variable(name: str) -> str:
     return "observada"
 
 
+# Parametros calibrados por OLS (ver src/calibrate.py y docs/calibracion_ols.md).
+# Esta provenance vive aqui para que el ETL reproduzca parameters.csv identico
+# (antes se inyectaba a mano post-ETL, rompiendo la reproducibilidad — N-1).
+_OLS_CALIBRATED = {
+    "eta_import_y": "Estimado OLS 2005-2025 (YoY dln): +2.70, SE 0.18, R2 0.77.",
+    "eta_import_q": "Estimado OLS ~0 (no signif); 0.10 (extremo IC) para canal minimo.",
+    "eta_export_q": "Con control completo (commodities+demanda externa) la elast. a TRM es ~0 (+0.03, SE 0.08, no signif). 0.10 para canal minimo. Motores reales: demanda externa (~2.2) y commodities.",
+    "output_rate_sensitivity": "Regla Taylor 0.50; no estimado (sin serie de tasa).",
+}
+
+
+def _parameter_classification(name: str) -> str:
+    if name in {"eta_import_y", "eta_import_q", "eta_export_q"}:
+        return "calibrado OLS"
+    return "supuesto calibrable"
+
+
 def _parameter_note(name: str) -> str:
+    if name in _OLS_CALIBRATED:
+        return _OLS_CALIBRATED[name]
     notes = {
         "mpc": "Propension marginal a consumir dentro de rangos usuales para modelos macro simples.",
         "investment_rate_sensitivity": "Caida porcentual de la inversion por punto porcentual de aumento de la tasa real.",
@@ -296,7 +315,7 @@ def _parameter_note(name: str) -> str:
         "capital_flow_sensitivity_usd_m_per_pp": "Sensibilidad de entradas netas de capital al diferencial de tasas ajustado por riesgo.",
         "exchange_rate_bp_sensitivity": "Ajuste de la TRM ante brecha de balanza de pagos como proporcion del PIB trimestral en USD.",
     }
-    return notes.get(name, "Parametro conductual supuesto y editable en la app.")
+    return notes.get(name, "Parametro conductual; editable.")
 
 
 def source_matrix() -> pd.DataFrame:
@@ -337,6 +356,18 @@ def data_dictionary() -> pd.DataFrame:
         ["money_supply_m3_cop_billion", "Agregado monetario M3", "COP miles de millones", "Mensual", "BanRep/proxy", "Observada via proxy"],
         ["oil_brent_usd_per_barrel", "Precio Brent", "USD/barril", "Diaria", "EIA/FRED/proxy", "Observada via proxy"],
         ["risk_premium_pct", "Prima de riesgo Colombia", "Porcentaje", "Diaria", "CountryEconomy", "Proxy"],
+        # Variables que el modelo consume (en _baseline) y/o muestra, antes no documentadas (NEW-01).
+        ["net_exports_real_cop_billion", "Exportaciones netas reales (X - M)", "COP miles de millones, precios 2015", "Trimestral", "DANE", "Derivada"],
+        ["real_exchange_rate_index", "Indice de tipo de cambio real (base 100)", "Indice", "Calibrada", "Transformada", "Transformada"],
+        ["foreign_rate_pct", "Tasa externa (Fed funds efectiva)", "Porcentaje", "Diaria", "Federal Reserve", "Observada"],
+        ["inflation_yoy_pct", "Inflacion anual (IPC, var. % interanual)", "Porcentaje", "Mensual", "DANE", "Observada"],
+        ["terms_of_trade_index", "Indice de terminos de intercambio (ITI)", "Indice", "Mensual", "BanRep/proxy", "Observada via proxy"],
+        ["reserves_usd_m", "Reservas internacionales", "USD millones", "Mensual", "BanRep/proxy", "Observada via proxy"],
+        ["current_account_pct_gdp", "Cuenta corriente como % del PIB", "Porcentaje", "Trimestral", "BanRep", "Observada"],
+        ["fiscal_deficit_gnc_pct_gdp", "Deficit fiscal GNC como % del PIB", "Porcentaje", "Anual", "MHCP/BanRep", "Observada resumen oficial"],
+        ["gross_debt_gnc_pct_gdp", "Deuda bruta GNC como % del PIB", "Porcentaje", "Anual", "MHCP/BanRep", "Observada resumen oficial"],
+        ["gdp_bp_reference_usd_m", "PIB trimestral en USD (referencia para normalizar BP)", "USD millones", "Trimestral", "Transformada", "Transformada"],
+        ["errors_omissions_usd_m", "Errores y omisiones de la balanza de pagos", "USD millones", "Trimestral", "BanRep", "Observada"],
     ]
     return pd.DataFrame(rows, columns=["variable", "descripcion", "unidad", "frecuencia_final", "fuente", "clasificacion"])
 

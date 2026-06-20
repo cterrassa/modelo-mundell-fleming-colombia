@@ -13,3 +13,14 @@ financial_account_inflow_usd_m,Entradas netas de capital,USD millones,Trimestral
 money_supply_m3_cop_billion,Agregado monetario M3,COP miles de millones,Mensual,BanRep/proxy,Observada via proxy
 oil_brent_usd_per_barrel,Precio Brent,USD/barril,Diaria,EIA/FRED/proxy,Observada via proxy
 risk_premium_pct,Prima de riesgo Colombia,Porcentaje,Diaria,CountryEconomy,Proxy
+net_exports_real_cop_billion,Exportaciones netas reales (X - M),"COP miles de millones, precios 2015",Trimestral,DANE,Derivada
+real_exchange_rate_index,Indice de tipo de cambio real (base 100),Indice,Calibrada,Transformada,Transformada
+foreign_rate_pct,Tasa externa (Fed funds efectiva),Porcentaje,Diaria,Federal Reserve,Observada
+inflation_yoy_pct,"Inflacion anual (IPC, var. % interanual)",Porcentaje,Mensual,DANE,Observada
+terms_of_trade_index,Indice de terminos de intercambio (ITI),Indice,Mensual,BanRep/proxy,Observada via proxy
+reserves_usd_m,Reservas internacionales,USD millones,Mensual,BanRep/proxy,Observada via proxy
+current_account_pct_gdp,Cuenta corriente como % del PIB,Porcentaje,Trimestral,BanRep,Observada
+fiscal_deficit_gnc_pct_gdp,Deficit fiscal GNC como % del PIB,Porcentaje,Anual,MHCP/BanRep,Observada resumen oficial
+gross_debt_gnc_pct_gdp,Deuda bruta GNC como % del PIB,Porcentaje,Anual,MHCP/BanRep,Observada resumen oficial
+gdp_bp_reference_usd_m,PIB trimestral en USD (referencia para normalizar BP),USD millones,Trimestral,Transformada,Transformada
+errors_omissions_usd_m,Errores y omisiones de la balanza de pagos,USD millones,Trimestral,BanRep,Observada

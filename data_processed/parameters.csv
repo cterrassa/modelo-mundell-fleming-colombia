@@ -1,12 +1,12 @@
 parameter,value,classification,note
-mpc,0.68,supuesto calibrable,Parametro conductual; editable.
-investment_rate_sensitivity,0.018,supuesto calibrable,Parametro conductual; editable.
-money_rate_sensitivity,0.08,supuesto calibrable,Parametro conductual; editable.
-output_rate_sensitivity,0.5,supuesto calibrable,Regla Taylor 0.50; no estimado.
+mpc,0.68,supuesto calibrable,Propension marginal a consumir dentro de rangos usuales para modelos macro simples.
+investment_rate_sensitivity,0.018,supuesto calibrable,Caida porcentual de la inversion por punto porcentual de aumento de la tasa real.
+money_rate_sensitivity,0.08,supuesto calibrable,"Cambio en tasa domestica, en pp, ante 1% de choque a M3."
+output_rate_sensitivity,0.5,supuesto calibrable,Regla Taylor 0.50; no estimado (sin serie de tasa).
 eta_export_q,0.1,calibrado OLS,"Con control completo (commodities+demanda externa) la elast. a TRM es ~0 (+0.03, SE 0.08, no signif). 0.10 para canal minimo. Motores reales: demanda externa (~2.2) y commodities."
 eta_import_q,0.1,calibrado OLS,Estimado OLS ~0 (no signif); 0.10 (extremo IC) para canal minimo.
 eta_import_y,2.7,calibrado OLS,"Estimado OLS 2005-2025 (YoY dln): +2.70, SE 0.18, R2 0.77."
 eta_oil_export,0.12,supuesto calibrable,Parametro conductual; editable.
-capital_flow_sensitivity_usd_m_per_pp,800.0,supuesto calibrable,Parametro conductual; editable.
+capital_flow_sensitivity_usd_m_per_pp,800.0,supuesto calibrable,Sensibilidad de entradas netas de capital al diferencial de tasas ajustado por riesgo.
 exchange_rate_uip_sensitivity,0.025,supuesto calibrable,Parametro conductual; editable.
-exchange_rate_bp_sensitivity,0.8,supuesto calibrable,Parametro conductual; editable.
+exchange_rate_bp_sensitivity,0.8,supuesto calibrable,Ajuste de la TRM ante brecha de balanza de pagos como proporcion del PIB trimestral en USD.
