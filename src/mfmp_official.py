@@ -270,51 +270,6 @@ def national_accounts_tree(year: int, df: pd.DataFrame | None = None) -> dict:
     }
 
 
-# Paleta del arbol de cuentas: creditos (verde), debitos (rojo), agregados (gris/azul).
-ACCOUNT_COLORS = {"ingreso": "#16a34a", "egreso": "#dc2626", "root": "#1f2937"}
-
-
-def icicle_arrays(leaves: list[dict], root_label: str, value_field: str = "value_cop_billion") -> dict:
-    """Arrays para un arbol icicle de creditos vs debitos (estructura pura, sin Plotly).
-
-    Agrupa las hojas en dos ramas (Ingresos/creditos, Egresos/debitos) usando
-    magnitudes absolutas. El valor de cada nodo padre se calcula como la SUMA de
-    sus hijos, de modo que branchvalues='total' es consistente (padre >= hijos) y
-    Plotly dibuja el arbol completo. Omite hojas con magnitud ~0.
-
-    Devuelve dict con listas paralelas: ids, labels, parents, values, texts, colors.
-    """
-    leaves = [n for n in leaves if abs(float(n[value_field])) > 1e-9]
-    branches = [
-        ("Ingresos (creditos)", "ingreso", ACCOUNT_COLORS["ingreso"]),
-        ("Egresos (debitos)", "egreso", ACCOUNT_COLORS["egreso"]),
-    ]
-    ids, labels, parents, values, texts, colors = [], [], [], [], [], []
-
-    def branch_sum(kind: str) -> float:
-        return sum(abs(float(n[value_field])) for n in leaves if n["kind"] == kind)
-
-    root_total = sum(branch_sum(k) for _, k, _ in branches)
-    ids.append(root_label); labels.append(root_label); parents.append("")
-    values.append(root_total); texts.append(""); colors.append(ACCOUNT_COLORS["root"])
-    for branch, kind, color in branches:
-        sub = [n for n in leaves if n["kind"] == kind]
-        if not sub:
-            continue
-        ids.append(branch); labels.append(branch); parents.append(root_label)
-        values.append(branch_sum(kind)); texts.append(""); colors.append(color)
-        for n in sub:
-            lab = n["label"].strip()
-            ids.append(f"{branch}/{lab}")
-            labels.append(lab)
-            parents.append(branch)
-            values.append(abs(float(n[value_field])))
-            texts.append(f"{n['value_pct']:+.1f}% PIB")
-            colors.append(color)
-    return {"ids": ids, "labels": labels, "parents": parents,
-            "values": values, "texts": texts, "colors": colors}
-
-
 if __name__ == "__main__":
     p = write_csv()
     print(f"Escrito {p}")

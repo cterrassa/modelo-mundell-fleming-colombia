@@ -133,27 +133,6 @@ def test_icicle_leaves_close_to_balances(year):
             assert n["value_pct"] < 0, f"{n['label']} marcado egreso pero positivo"
 
 
-@pytest.mark.parametrize("year", [2025, 2026, 2030, 2037])
-def test_icicle_arrays_branchvalues_total_consistent(year):
-    """Para branchvalues='total', el valor de cada padre debe ser >= suma de hijos.
-
-    Blinda el bug en que los padres se fijaban en 0.0 y Plotly.js no dibujaba los
-    hijos (validacion client-side, invisible para AppTest).
-    """
-    t = m.national_accounts_tree(year)
-    for leaves, root in ((t["external_leaves"], "ext"), (t["fiscal_leaves"], "fis")):
-        a = m.icicle_arrays(leaves, root)
-        val = {i: v for i, v in zip(a["ids"], a["values"])}
-        child_sum: dict[str, float] = {}
-        for cid, par in zip(a["ids"], a["parents"]):
-            if par:
-                child_sum[par] = child_sum.get(par, 0.0) + val[cid]
-        for pid, s in child_sum.items():
-            assert val[pid] >= s - 1e-6, f"{root} {year}: padre {pid}={val[pid]:.2f} < hijos {s:.2f}"
-        # El total de la raiz debe ser > 0 (hay flujos que dibujar).
-        assert val[root] > 0
-
-
 def test_csv_matches_builder():
     """El CSV comprometido coincide con build_dataframe() (reproducibilidad)."""
     committed = pd.read_csv(ROOT / "data_processed" / "mfmp_2026_oficial.csv")

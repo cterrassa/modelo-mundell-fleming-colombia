@@ -18,6 +18,7 @@ import live_data  # noqa: E402
 from mf_projection import PROJECTION_SCENARIOS, project_scenario, project_with_sensitivity  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
 import mfmp_official as mfmp  # noqa: E402
+import account_tree as acct  # noqa: E402
 import backtest as bt  # noqa: E402
 from long_run import simulate_long_run  # noqa: E402
 import equations as eqs  # noqa: E402
@@ -170,24 +171,6 @@ def plot_theme(fig: go.Figure, height: int) -> go.Figure:
 
 
 # --- Arbol de cuentas nacionales (MFMP 2026) ---------------------------------
-
-def account_icicle(leaves: list[dict], root_label: str) -> go.Figure:
-    """Arbol (icicle) de creditos vs debitos a partir de los nodos hoja con signo.
-
-    Delega el armado de la jerarquia (con valores de padre = suma de hijos, para
-    que branchvalues='total' sea consistente) en mfmp.icicle_arrays, que es puro y
-    esta cubierto por tests. Aqui solo se construye la figura Plotly.
-    """
-    a = mfmp.icicle_arrays(leaves, root_label)
-    fig = go.Figure(go.Icicle(
-        ids=a["ids"], labels=a["labels"], parents=a["parents"], values=a["values"],
-        text=a["texts"], branchvalues="total", tiling={"orientation": "h"},
-        marker={"colors": a["colors"]},
-        textinfo="label+value+text",
-        hovertemplate="<b>%{label}</b><br>%{value:,.1f} bn COP<br>%{text}<extra></extra>",
-    ))
-    return fig
-
 
 def account_identity_rows(nodes: list[dict]) -> pd.DataFrame:
     """Tabla jerarquica con signo: % PIB, billones COP y millones USD."""
@@ -1243,69 +1226,86 @@ with right:
     with tab_tree:
         st.subheader("Arbol de descomposicion de la contabilidad nacional")
         st.caption(
-            "Descomposicion de las cuentas externas (balanza de pagos) y fiscales (GNC) para un anio, "
-            "con cifras oficiales del MFMP 2026 (MHCP-DGPM). El arbol agrupa creditos (verde) y debitos "
-            "(rojo); el saldo neto de cada cuenta se reporta como identidad contable. Valores en % del PIB "
-            "(autoritativos) y su equivalente en billones COP y millones USD (derivados del PIB nominal y la TRM)."
+            "Descomposicion de las cuentas nacionales para un anio, como arbol: raiz -> creditos (verde) "
+            "/ debitos (rojo) -> componentes. **Hacia atras** (2005-2025): PIB por el lado del gasto con "
+            "datos del DANE. **Hacia adelante** (2025-2037): cuentas externas (balanza de pagos) y fiscales "
+            "(GNC) con cifras oficiales del MFMP 2026 (MHCP-DGPM)."
         )
 
+        qtree = pd.read_csv(ROOT / "data_processed" / "quarterly_master.csv")
+        _qpa = qtree.dropna(subset=["year"]).groupby("year")["quarter"].nunique()
+        hist_years = sorted(int(y) for y in _qpa[_qpa >= 4].index)
         mfmp_df = mfmp.load()
-        years_avail = [int(y) for y in mfmp_df["year"].tolist()]
+        mfmp_years = [int(y) for y in mfmp_df["year"].tolist()]
+        all_years = sorted(set(hist_years) | set(mfmp_years))
+
         tree_year = st.select_slider(
             "Anio",
-            options=years_avail,
-            value=2026 if 2026 in years_avail else years_avail[0],
+            options=all_years,
+            value=2026 if 2026 in all_years else all_years[-1],
+            help="2005-2025: PIB por el gasto (DANE). 2025-2037: cuentas externas y fiscales (MFMP).",
         )
-        tree = mfmp.national_accounts_tree(tree_year, mfmp_df)
 
-        cc = next(n for n in tree["external"] if n["label"] == "Cuenta corriente")
-        tb = next(n for n in tree["external"] if n["label"] == "Balanza comercial (bienes)")
-        bal = next(n for n in tree["fiscal"] if n["label"] == "Balance fiscal total (GNC)")
+        exp_view = acct.expenditure_view(qtree, tree_year) if tree_year in hist_years else None
+        has_mfmp = tree_year in mfmp_years
+        tree = mfmp.national_accounts_tree(tree_year, mfmp_df) if has_mfmp else None
 
-        k1, k2, k3, k4, k5, k6 = st.columns(6)
-        k1.metric("PIB nominal", f"{tree['nominal_gdp_cop_billion']:,.0f} bn COP")
-        k2.metric("TRM promedio", f"{tree['trm_average']:,.0f}")
-        k3.metric("Cuenta corriente", f"{cc['value_pct']:+.1f}% PIB", f"{cc['value_usd_m']:,.0f} USD m")
-        k4.metric("Balanza comercial", f"{tb['value_pct']:+.1f}% PIB", f"{tb['value_usd_m']:,.0f} USD m")
-        k5.metric("Balance fiscal GNC", f"{bal['value_pct']:+.1f}% PIB")
-        k6.metric("Balance primario", f"{tree['primary_balance_pct_gdp']:+.1f}% PIB")
+        # --- KPIs (dependen de la disponibilidad de datos del anio) ---
+        if has_mfmp:
+            cc = next(n for n in tree["external"] if n["label"] == "Cuenta corriente")
+            tb = next(n for n in tree["external"] if n["label"] == "Balanza comercial (bienes)")
+            bal = next(n for n in tree["fiscal"] if n["label"] == "Balance fiscal total (GNC)")
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
+            c1.metric("PIB nominal", f"{tree['nominal_gdp_cop_billion']:,.0f} bn COP")
+            c2.metric("TRM promedio", f"{tree['trm_average']:,.0f}")
+            c3.metric("Cuenta corriente", f"{cc['value_pct']:+.1f}% PIB", f"{cc['value_usd_m']:,.0f} USD m")
+            c4.metric("Balanza comercial", f"{tb['value_pct']:+.1f}% PIB", f"{tb['value_usd_m']:,.0f} USD m")
+            c5.metric("Balance fiscal GNC", f"{bal['value_pct']:+.1f}% PIB")
+            c6.metric("Balance primario", f"{tree['primary_balance_pct_gdp']:+.1f}% PIB")
+        elif exp_view is not None:
+            _sub = qtree[qtree["year"] == tree_year]
+            _y = float(_sub["gdp_nominal_cop_billion"].sum())
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("PIB nominal", f"{_y/1000:,.0f} bn COP")
+            c2.metric("Consumo total", f"{_sub['total_consumption_nominal_cop_billion'].sum()/_y*100:.1f}% PIB")
+            c3.metric("Inversion (FBK)", f"{_sub['investment_nominal_cop_billion'].sum()/_y*100:.1f}% PIB")
+            c4.metric("Export. netas", f"{_sub['net_exports_nominal_cop_billion'].sum()/_y*100:+.1f}% PIB")
 
-        col_ext, col_fis = st.columns(2)
-        with col_ext:
-            st.markdown("#### Sector externo — Balanza de pagos")
-            fig_ext = account_icicle(tree["external_leaves"], f"Sector externo {tree_year}")
-            st.plotly_chart(plot_theme(fig_ext, 360), width="stretch")
-            st.markdown(
-                f"**Identidad de cuenta corriente ({tree_year}):** "
-                f"`Cta. corriente ({cc['value_pct']:+.1f}) = Balanza comercial ({tb['value_pct']:+.1f}) "
-                f"+ Servicios + Renta factorial + Transferencias`. "
-                f"El deficit corriente se financia por la **cuenta financiera** "
-                f"({tree['financial_account_pct_gdp']:+.1f}% del PIB), cubierta en ~"
-                f"{tree['ied_share_medium_term']*100:.0f}% por IED en el mediano plazo (MFMP)."
-            )
-            st.dataframe(
-                account_identity_rows(tree["external"]).set_index("Concepto"),
-                width="stretch",
-            )
-        with col_fis:
-            st.markdown("#### Sector fiscal — Gobierno Nacional Central")
-            fig_fis = account_icicle(tree["fiscal_leaves"], f"GNC {tree_year}")
-            st.plotly_chart(plot_theme(fig_fis, 360), width="stretch")
-            st.markdown(
-                f"**Identidad fiscal ({tree_year}):** "
-                f"`Balance total ({bal['value_pct']:+.1f}) = Ingreso total - Gasto total`; "
-                f"`Balance primario ({tree['primary_balance_pct_gdp']:+.1f}) = Balance total + Intereses`. "
-                f"Deuda neta del GNC: **{tree['net_debt_pct_gdp']:.1f}% del PIB**."
-            )
-            st.dataframe(
-                account_identity_rows(tree["fiscal"]).set_index("Concepto"),
-                width="stretch",
-            )
+        # --- PIB por el lado del gasto (historico, hacia atras) ---
+        if exp_view is not None:
+            st.markdown("#### PIB por el lado del gasto (DANE)")
+            st.html(acct.tree_svg(f"PIB por el lado del gasto · {tree_year}", exp_view))
+            st.caption(exp_view["identity"])
+
+        # --- Cuentas externas y fiscales (MFMP, hacia adelante) ---
+        if has_mfmp:
+            st.markdown("#### Cuentas externas y fiscales (MFMP 2026)")
+            ev = acct.external_view(tree)
+            fv = acct.fiscal_view(tree)
+            col_ext, col_fis = st.columns(2)
+            with col_ext:
+                st.html(acct.tree_svg(f"Sector externo · Balanza de pagos {tree_year}", ev))
+                st.markdown(
+                    f"**Identidad ({tree_year}):** `Cta. corriente ({cc['value_pct']:+.1f}) = "
+                    f"Balanza comercial ({tb['value_pct']:+.1f}) + Servicios + Renta factorial + "
+                    f"Transferencias`. Financiada por la **cuenta financiera** "
+                    f"({tree['financial_account_pct_gdp']:+.1f}% PIB), ~{tree['ied_share_medium_term']*100:.0f}% IED (MFMP)."
+                )
+                st.dataframe(account_identity_rows(tree["external"]).set_index("Concepto"), width="stretch")
+            with col_fis:
+                st.html(acct.tree_svg(f"Sector fiscal · GNC {tree_year}", fv))
+                st.markdown(
+                    f"**Identidad ({tree_year}):** `Balance total ({bal['value_pct']:+.1f}) = "
+                    f"Ingreso - Gasto`; `Primario ({tree['primary_balance_pct_gdp']:+.1f}) = Balance + Intereses`. "
+                    f"Deuda neta GNC: **{tree['net_debt_pct_gdp']:.1f}% PIB**."
+                )
+                st.dataframe(account_identity_rows(tree["fiscal"]).set_index("Concepto"), width="stretch")
 
         st.caption(
-            "Fuente: MFMP 2026 (MHCP-DGPM), Tablas 3.1 y 3.2 y Grafico 3.4. La linea de servicios se "
-            "reconcilia para cerrar la identidad de cuenta corriente; las sumas de componentes pueden "
-            "diferir <=0,1pp del total reportado por el redondeo del documento a un decimal."
+            "Fuentes: DANE (cuentas nacionales trimestrales, lado del gasto) y MFMP 2026 (MHCP-DGPM), "
+            "Tablas 3.1/3.2 y Grafico 3.4. En el sector externo, la linea de servicios se reconcilia para "
+            "cerrar la identidad de cuenta corriente; las sumas pueden diferir <=0,1pp del total por el "
+            "redondeo del MFMP a un decimal."
         )
 
     with tab_backtest:

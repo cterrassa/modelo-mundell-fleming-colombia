@@ -22,11 +22,14 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
   MHCP (MFMP 2026)** con las cifras publicadas (cuentas nacionales y TRM al
   quinquenio 2026-2030 o al mediano plazo 2026-2037), y (b) **proyeccion del
   modelo Mundell-Fleming** bajo escenarios de choques. Sin Monte Carlo.
-- **Arbol de cuentas nacionales (MFMP):** descomposicion de la balanza de pagos
-  (cuenta corriente, balanza comercial, servicios, renta factorial,
-  transferencias, cuenta financiera) y del sector fiscal del GNC (ingreso, gasto,
-  intereses, balance total y primario, deuda neta) para un anio elegido, con las
-  identidades contables explicitas en % del PIB, billones COP y millones USD.
+- **Arbol de cuentas nacionales:** arbol nodo-enlace (raiz -> creditos/debitos ->
+  componentes) para un anio elegido entre **2005 y 2037**. *Hacia atras* (2005-2025):
+  PIB por el lado del gasto (Y = C + I + G + X - M) con datos del DANE. *Hacia
+  adelante* (2025-2037): balanza de pagos (cuenta corriente, balanza comercial,
+  servicios, renta factorial, transferencias, cuenta financiera) y sector fiscal
+  del GNC (ingreso, gasto, intereses, balance total/primario, deuda neta) con
+  cifras del MFMP 2026, con las identidades contables explicitas en % del PIB,
+  billones COP y millones USD.
 - **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
 - **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
   correlacion).
@@ -41,7 +44,8 @@ src/
   mf_model.py           simulate(), perfecta + imperfecta, validate_signs
   mf_curves.py          helpers para dibujar IS, LM, BP en plano (gap, rate)
   mf_projection.py      project() determinista a 5 anios + escenarios
-  mfmp_official.py       senda oficial MFMP 2026 (MHCP) + arbol de cuentas nacionales
+  mfmp_official.py       senda oficial MFMP 2026 (MHCP): macro/fiscal/externo
+  account_tree.py        arbol de cuentas nacionales (SVG): gasto DANE + MFMP
   consolidated_table.py historico DANE + proyeccion del modelo, anclado anual
   live_data.py          fetchers TRM (Datos Abiertos) + FRED (DFF, Brent)
   backtest.py           run_backtest() trimestre a trimestre, metricas RMSE/MAE
@@ -88,8 +92,9 @@ Detalles en `DEPLOYMENT.md`.
 
 ## Tests
 
-Suite completa (64 tests; incluye `tests/test_mfmp_official.py` que valida que las
-identidades contables del MFMP cierran y que el CSV oficial es reproducible).
+Suite completa (80 tests; incluye `tests/test_mfmp_official.py` y
+`tests/test_account_tree.py` que validan que las identidades contables del MFMP y
+del PIB por el gasto cierran, y que el SVG del arbol esta bien formado).
 `tests/test_signs.py` ejecuta como aserciones pytest
 los **22 chequeos de signo** (9 perfecta + 8 imperfecta + 5 fijo) sobre los 3
 regimenes:
