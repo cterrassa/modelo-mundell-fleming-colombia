@@ -10,3 +10,5 @@ _zip_stage/
 # transcritos en src/mfmp_official.py + data_processed/mfmp_2026_oficial.csv).
 *.pdf
 mfmp_text.txt
+# Config local de preview/dev
+.claude/

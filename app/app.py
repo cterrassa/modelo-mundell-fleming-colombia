@@ -172,6 +172,29 @@ def plot_theme(fig: go.Figure, height: int) -> go.Figure:
 
 # --- Arbol de cuentas nacionales (MFMP 2026) ---------------------------------
 
+def account_treemap(root: dict, height: int = 460, maxdepth: int = 3) -> go.Figure:
+    """Treemap jerarquico interactivo: clic en una rama para descomponerla mas.
+
+    Verde = entra (credito/ingreso), rojo = sale (debito/egreso). Tamano = magnitud
+    (% del PIB); etiqueta = saldo neto; hover = monto en COP/USD.
+    """
+    a = acct.treemap_arrays(root)
+    fig = go.Figure(go.Treemap(
+        ids=a["ids"], labels=a["labels"], parents=a["parents"], values=a["values"],
+        text=a["text"], customdata=a["hover"],
+        branchvalues="total", maxdepth=maxdepth,
+        marker={"colors": a["colors"], "line": {"width": 1.5, "color": "white"}},
+        tiling={"pad": 3},
+        texttemplate="<b>%{label}</b><br>%{text}",
+        textfont={"size": 14},
+        hovertemplate="<b>%{label}</b><br>%{customdata}<extra></extra>",
+        textposition="middle center",
+    ))
+    fig.update_layout(height=height, margin={"l": 6, "r": 6, "t": 6, "b": 6},
+                      paper_bgcolor="white", font={"family": "Inter, Segoe UI, Arial"})
+    return fig
+
+
 def account_identity_rows(nodes: list[dict]) -> pd.DataFrame:
     """Tabla jerarquica con signo: % PIB, billones COP y millones USD."""
     rows = []
@@ -1246,7 +1269,7 @@ with right:
             help="2005-2025: PIB por el gasto (DANE). 2025-2037: cuentas externas y fiscales (MFMP).",
         )
 
-        exp_view = acct.expenditure_view(qtree, tree_year) if tree_year in hist_years else None
+        exp_view = acct.expenditure_hierarchy(qtree, tree_year) if tree_year in hist_years else None
         has_mfmp = tree_year in mfmp_years
         tree = mfmp.national_accounts_tree(tree_year, mfmp_df) if has_mfmp else None
 
@@ -1274,17 +1297,16 @@ with right:
         # --- PIB por el lado del gasto (historico, hacia atras) ---
         if exp_view is not None:
             st.markdown("#### PIB por el lado del gasto (DANE)")
-            st.html(acct.tree_svg(f"PIB por el lado del gasto · {tree_year}", exp_view))
-            st.caption(exp_view["identity"])
+            st.caption("Haz clic en una rama (p. ej. Consumo) para descomponerla; clic en la barra superior para volver.")
+            st.plotly_chart(account_treemap(exp_view, height=460), width="stretch")
 
         # --- Cuentas externas y fiscales (MFMP, hacia adelante) ---
         if has_mfmp:
             st.markdown("#### Cuentas externas y fiscales (MFMP 2026)")
-            ev = acct.external_view(tree)
-            fv = acct.fiscal_view(tree)
+            st.caption("Haz clic en una rama (p. ej. Balanza comercial -> Exportaciones) para descomponerla; clic en la barra superior para volver.")
             col_ext, col_fis = st.columns(2)
             with col_ext:
-                st.html(acct.tree_svg(f"Sector externo · Balanza de pagos {tree_year}", ev))
+                st.plotly_chart(account_treemap(acct.external_hierarchy(tree), height=420), width="stretch")
                 st.markdown(
                     f"**Identidad ({tree_year}):** `Cta. corriente ({cc['value_pct']:+.1f}) = "
                     f"Balanza comercial ({tb['value_pct']:+.1f}) + Servicios + Renta factorial + "
@@ -1293,7 +1315,7 @@ with right:
                 )
                 st.dataframe(account_identity_rows(tree["external"]).set_index("Concepto"), width="stretch")
             with col_fis:
-                st.html(acct.tree_svg(f"Sector fiscal · GNC {tree_year}", fv))
+                st.plotly_chart(account_treemap(acct.fiscal_hierarchy(tree), height=420), width="stretch")
                 st.markdown(
                     f"**Identidad ({tree_year}):** `Balance total ({bal['value_pct']:+.1f}) = "
                     f"Ingreso - Gasto`; `Primario ({tree['primary_balance_pct_gdp']:+.1f}) = Balance + Intereses`. "

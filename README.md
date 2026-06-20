@@ -22,14 +22,15 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
   MHCP (MFMP 2026)** con las cifras publicadas (cuentas nacionales y TRM al
   quinquenio 2026-2030 o al mediano plazo 2026-2037), y (b) **proyeccion del
   modelo Mundell-Fleming** bajo escenarios de choques. Sin Monte Carlo.
-- **Arbol de cuentas nacionales:** arbol nodo-enlace (raiz -> creditos/debitos ->
-  componentes) para un anio elegido entre **2005 y 2037**. *Hacia atras* (2005-2025):
-  PIB por el lado del gasto (Y = C + I + G + X - M) con datos del DANE. *Hacia
-  adelante* (2025-2037): balanza de pagos (cuenta corriente, balanza comercial,
-  servicios, renta factorial, transferencias, cuenta financiera) y sector fiscal
-  del GNC (ingreso, gasto, intereses, balance total/primario, deuda neta) con
-  cifras del MFMP 2026, con las identidades contables explicitas en % del PIB,
-  billones COP y millones USD.
+- **Arbol de cuentas nacionales:** treemap jerarquico **interactivo** (clic en una
+  rama para descomponerla mas; clic en la barra superior para volver) para un anio
+  entre **2005 y 2037**. *Hacia atras* (2005-2025): PIB por el lado del gasto
+  (Y = C + I + G + X - M) con datos del DANE. *Hacia adelante* (2025-2037): balanza
+  de pagos (cuenta corriente -> balanza comercial -> exportaciones trad/no trad,
+  importaciones, servicios, renta factorial, transferencias) y sector fiscal del
+  GNC (ingreso, gasto, intereses, balance total/primario, deuda neta) con cifras del
+  MFMP 2026. Verde = entra/credito, rojo = sale/debito; etiqueta con el saldo neto
+  en % del PIB y hover con el monto en billones COP y millones USD.
 - **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
 - **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
   correlacion).
@@ -45,7 +46,7 @@ src/
   mf_curves.py          helpers para dibujar IS, LM, BP en plano (gap, rate)
   mf_projection.py      project() determinista a 5 anios + escenarios
   mfmp_official.py       senda oficial MFMP 2026 (MHCP): macro/fiscal/externo
-  account_tree.py        arbol de cuentas nacionales (SVG): gasto DANE + MFMP
+  account_tree.py        arbol de cuentas (treemap jerarquico): gasto DANE + MFMP
   consolidated_table.py historico DANE + proyeccion del modelo, anclado anual
   live_data.py          fetchers TRM (Datos Abiertos) + FRED (DFF, Brent)
   backtest.py           run_backtest() trimestre a trimestre, metricas RMSE/MAE

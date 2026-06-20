@@ -1,7 +1,6 @@
-"""Tests del arbol de cuentas nacionales (src/account_tree.py)."""
+"""Tests del arbol de cuentas nacionales (treemap jerarquico, src/account_tree.py)."""
 
 import sys
-import xml.dom.minidom as minidom
 from pathlib import Path
 
 import pandas as pd
@@ -31,55 +30,75 @@ def test_expenditure_identity_exact(qdf, year):
     assert abs(ident - sub["gdp_nominal_cop_billion"].sum()) < 1.0
 
 
-def test_expenditure_view_structure(qdf):
-    v = acct.expenditure_view(qdf, 2024)
-    assert v is not None
-    assert v["root"]["label"].startswith("PIB")
-    kinds = [lf["kind"] for b in v["branches"] for lf in b["leaves"]]
-    assert "ingreso" in kinds and "egreso" in kinds
-    # 4 componentes positivos (C,G,I,X) + 1 negativo (M)
-    assert sum(len(b["leaves"]) for b in v["branches"]) == 5
+def test_expenditure_hierarchy_structure(qdf):
+    h = acct.expenditure_hierarchy(qdf, 2024)
+    assert h is not None and h["children"]
+    labels = {n["label"] for n in _walk(h)}
+    for must in ("Consumo privado (C)", "Consumo publico (G)", "Inversion (FBK)",
+                 "Exportaciones (X)", "Importaciones (M)"):
+        assert must in labels, must
 
 
-def test_expenditure_view_partial_year_returns_none(qdf):
-    """Un anio sin 4 trimestres no debe producir arbol (evita anualizar parcial)."""
-    # 2099 no existe -> None; ademas si hubiera un anio parcial real, igual None.
-    assert acct.expenditure_view(qdf, 2099) is None
+def test_expenditure_partial_year_returns_none(qdf):
+    assert acct.expenditure_hierarchy(qdf, 2099) is None
 
 
-def test_external_and_fiscal_views_from_mfmp():
+def test_external_and_fiscal_hierarchies():
     t = m.national_accounts_tree(2026)
-    ev = acct.external_view(t)
-    fv = acct.fiscal_view(t)
-    assert ev["root"]["label"] == "Cuenta corriente"
-    assert fv["root"]["label"] == "Balance fiscal GNC"
-    # cada vista tiene rama de creditos y de debitos
-    assert {b["kind"] for b in ev["branches"]} == {"ingreso", "egreso"}
-    assert {b["kind"] for b in fv["branches"]} == {"ingreso", "egreso"}
+    ext = acct.external_hierarchy(t)
+    fis = acct.fiscal_hierarchy(t)
+    ext_labels = {n["label"] for n in _walk(ext)}
+    assert {"Balanza comercial", "Exportaciones de bienes", "Tradicionales",
+            "No tradicionales", "Importaciones", "Renta factorial",
+            "Transferencias"} <= ext_labels
+    fis_labels = {n["label"] for n in _walk(fis)}
+    assert {"Ingreso total", "Gasto total", "Tributarios", "Intereses",
+            "Gasto primario"} <= fis_labels
 
 
-@pytest.mark.parametrize("year", [2010, 2024])
-def test_tree_svg_wellformed_expenditure(qdf, year):
-    v = acct.expenditure_view(qdf, year)
-    svg = acct.tree_svg(f"PIB {year}", v)
-    minidom.parseString(svg)  # lanza si el XML esta mal formado
-    assert svg.count("<rect") >= 6  # raiz + 2 ramas + >=3 hojas
-    assert acct.svg_height(v) > 0
+def _walk(node):
+    yield node
+    for c in node["children"]:
+        yield from _walk(c)
 
 
-@pytest.mark.parametrize("year", [2025, 2030, 2037])
-def test_tree_svg_wellformed_mfmp(year):
-    t = m.national_accounts_tree(year)
-    for view in (acct.external_view(t), acct.fiscal_view(t)):
-        svg = acct.tree_svg("x", view)
-        minidom.parseString(svg)
-        assert acct.svg_height(view) > 0
+@pytest.mark.parametrize("builder", ["exp", "ext", "fis"])
+def test_treemap_branchvalues_total_consistent(qdf, builder):
+    """branchvalues='total': el valor de cada padre == suma de sus hijos directos."""
+    if builder == "exp":
+        root = acct.expenditure_hierarchy(qdf, 2024)
+    else:
+        t = m.national_accounts_tree(2030)
+        root = acct.external_hierarchy(t) if builder == "ext" else acct.fiscal_hierarchy(t)
+    a = acct.treemap_arrays(root)
+    # ids unicos
+    assert len(a["ids"]) == len(set(a["ids"]))
+    # todo parent (no raiz) existe como id
+    idset = set(a["ids"])
+    for p in a["parents"]:
+        assert p == "" or p in idset
+    # padre == suma de hijos directos
+    val = dict(zip(a["ids"], a["values"]))
+    child_sum: dict[str, float] = {}
+    for cid, par in zip(a["ids"], a["parents"]):
+        if par:
+            child_sum[par] = child_sum.get(par, 0.0) + val[cid]
+    for pid, s in child_sum.items():
+        assert abs(val[pid] - s) < 1e-3, f"{pid}: {val[pid]} != suma hijos {s}"
 
 
-def test_svg_escapes_special_chars():
-    view = {"root": {"label": "A & B <x>", "sublines": ["s"]},
-            "branches": [{"label": "L", "value_label": "v", "kind": "ingreso",
-                          "leaves": [{"label": "x<&>", "value_label": "1", "kind": "ingreso"}]}]}
-    svg = acct.tree_svg("t & <z>", view)
-    minidom.parseString(svg)  # no debe romper el XML
-    assert "&amp;" in svg
+def test_treemap_colors_match_sign(qdf):
+    """Hojas positivas en verde, negativas en rojo."""
+    t = m.national_accounts_tree(2026)
+    a = acct.treemap_arrays(acct.external_hierarchy(t))
+    idx = {lab: i for i, lab in enumerate(a["labels"])}
+    assert a["colors"][idx["Tradicionales"]] == acct._C_POS_LEAF
+    assert a["colors"][idx["Importaciones"]] == acct._C_NEG_LEAF
+
+
+def test_treemap_root_uses_reported_net(qdf):
+    """El neto de la raiz usa el saldo reportado (override), no la suma de magnitudes."""
+    t = m.national_accounts_tree(2026)
+    a = acct.treemap_arrays(acct.external_hierarchy(t))
+    # la raiz es el primer nodo; su texto debe reflejar la cuenta corriente (~-2,2%)
+    assert "-2.2%" in a["text"][0]
