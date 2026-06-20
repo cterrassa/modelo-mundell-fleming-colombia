@@ -104,12 +104,12 @@ PROJECTION_SCENARIOS: dict[str, ProjectionScenario] = {
                     "los 5 anios coinciden con el equilibrio inicial.",
         annual_shocks=_const_path(Shock()),
     ),
-    "MFMP proxy (BanRep + FMI WEO)": ProjectionScenario(
-        name="MFMP proxy (BanRep + FMI WEO)",
-        description="Senda macroeconomica tipo Marco Fiscal de Mediano Plazo. NO usa cifras del MFMP "
-                    "oficial; es una construccion proxy con supuestos consistentes con BanRep (Informe "
-                    "de Politica Monetaria, Encuesta de Expectativas) y FMI WEO. Editable en "
-                    "data_processed/mfmp_proxy_scenario.csv.",
+    "Senda macro ilustrativa (BanRep + FMI WEO)": ProjectionScenario(
+        name="Senda macro ilustrativa (BanRep + FMI WEO)",
+        description="Senda macroeconomica ilustrativa con supuestos consistentes con BanRep (Informe "
+                    "de Politica Monetaria, Encuesta de Expectativas) y FMI WEO, resuelta por el modelo "
+                    "Mundell-Fleming. Editable en data_processed/mfmp_proxy_scenario.csv. Para la senda "
+                    "OFICIAL del MHCP, usa el modo 'Senda oficial MHCP (MFMP 2026)'.",
         annual_shocks=_load_csv_path(_MFMP_PROXY_PATH) if _MFMP_PROXY_PATH.exists() else _const_path(Shock()),
     ),
     "Expansion fiscal recurrente (+5% G/anio)": ProjectionScenario(

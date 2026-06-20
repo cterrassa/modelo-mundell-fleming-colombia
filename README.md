@@ -18,8 +18,15 @@ App publica: https://modelo-mundell-fleming-colombia.onrender.com/
   Fed, prima de riesgo Colombia, Brent, NX autonomo.
 - **Datos en vivo** (TRM Datos Abiertos, Fed funds y Brent FRED) con cache 1 h y
   fallback transparente a snapshot.
-- **Proyeccion deterministica a 5 anios** bajo escenarios predefinidos. Sin Monte
-  Carlo, fiel a la logica del modelo.
+- **Proyeccion deterministica a 5 anios** en dos modos: (a) **senda oficial del
+  MHCP (MFMP 2026)** con las cifras publicadas (cuentas nacionales y TRM al
+  quinquenio 2026-2030 o al mediano plazo 2026-2037), y (b) **proyeccion del
+  modelo Mundell-Fleming** bajo escenarios de choques. Sin Monte Carlo.
+- **Arbol de cuentas nacionales (MFMP):** descomposicion de la balanza de pagos
+  (cuenta corriente, balanza comercial, servicios, renta factorial,
+  transferencias, cuenta financiera) y del sector fiscal del GNC (ingreso, gasto,
+  intereses, balance total y primario, deuda neta) para un anio elegido, con las
+  identidades contables explicitas en % del PIB, billones COP y millones USD.
 - **Tabla consolidada de cuentas nacionales + proyecciones** con descarga CSV.
 - **Backtesting** trimestre a trimestre contra TRM observada (RMSE, MAE,
   correlacion).
@@ -34,6 +41,7 @@ src/
   mf_model.py           simulate(), perfecta + imperfecta, validate_signs
   mf_curves.py          helpers para dibujar IS, LM, BP en plano (gap, rate)
   mf_projection.py      project() determinista a 5 anios + escenarios
+  mfmp_official.py       senda oficial MFMP 2026 (MHCP) + arbol de cuentas nacionales
   consolidated_table.py historico DANE + proyeccion del modelo, anclado anual
   live_data.py          fetchers TRM (Datos Abiertos) + FRED (DFF, Brent)
   backtest.py           run_backtest() trimestre a trimestre, metricas RMSE/MAE
@@ -80,7 +88,9 @@ Detalles en `DEPLOYMENT.md`.
 
 ## Tests
 
-Suite completa (52 tests). `tests/test_signs.py` ejecuta como aserciones pytest
+Suite completa (64 tests; incluye `tests/test_mfmp_official.py` que valida que las
+identidades contables del MFMP cierran y que el CSV oficial es reproducible).
+`tests/test_signs.py` ejecuta como aserciones pytest
 los **22 chequeos de signo** (9 perfecta + 8 imperfecta + 5 fijo) sobre los 3
 regimenes:
 

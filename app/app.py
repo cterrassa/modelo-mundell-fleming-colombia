@@ -17,6 +17,7 @@ import mf_curves as curves  # noqa: E402
 import live_data  # noqa: E402
 from mf_projection import PROJECTION_SCENARIOS, project_scenario, project_with_sensitivity  # noqa: E402
 from consolidated_table import build_consolidated_table, to_csv_bytes  # noqa: E402
+import mfmp_official as mfmp  # noqa: E402
 import backtest as bt  # noqa: E402
 from long_run import simulate_long_run  # noqa: E402
 import equations as eqs  # noqa: E402
@@ -166,6 +167,39 @@ def plot_theme(fig: go.Figure, height: int) -> go.Figure:
     fig.update_xaxes(showgrid=True, gridcolor="#edf1f6", zeroline=False)
     fig.update_yaxes(showgrid=True, gridcolor="#edf1f6", zeroline=False)
     return fig
+
+
+# --- Arbol de cuentas nacionales (MFMP 2026) ---------------------------------
+
+def account_icicle(leaves: list[dict], root_label: str) -> go.Figure:
+    """Arbol (icicle) de creditos vs debitos a partir de los nodos hoja con signo.
+
+    Delega el armado de la jerarquia (con valores de padre = suma de hijos, para
+    que branchvalues='total' sea consistente) en mfmp.icicle_arrays, que es puro y
+    esta cubierto por tests. Aqui solo se construye la figura Plotly.
+    """
+    a = mfmp.icicle_arrays(leaves, root_label)
+    fig = go.Figure(go.Icicle(
+        ids=a["ids"], labels=a["labels"], parents=a["parents"], values=a["values"],
+        text=a["texts"], branchvalues="total", tiling={"orientation": "h"},
+        marker={"colors": a["colors"]},
+        textinfo="label+value+text",
+        hovertemplate="<b>%{label}</b><br>%{value:,.1f} bn COP<br>%{text}<extra></extra>",
+    ))
+    return fig
+
+
+def account_identity_rows(nodes: list[dict]) -> pd.DataFrame:
+    """Tabla jerarquica con signo: % PIB, billones COP y millones USD."""
+    rows = []
+    for n in nodes:
+        rows.append({
+            "Concepto": n["label"],
+            "% PIB": round(n["value_pct"], 1),
+            "Billones COP": round(n["value_cop_billion"], 1),
+            "Millones USD": round(n["value_usd_m"], 0),
+        })
+    return pd.DataFrame(rows)
 
 
 def equilibrium_figure_main(
@@ -791,8 +825,8 @@ with right:
         "COP miles de millones, precios constantes de 2015. No es PIB anual ni pesos corrientes."
     )
 
-    tab_summary, tab_eqs, tab_curves, tab_compare, tab_horizon, tab_table, tab_backtest, tab_data = st.tabs(
-        ["Impacto", "Ecuaciones de equilibrio", "Curvas del modelo", "Base vs simulado", "Corto vs largo plazo", "Cuentas nacionales y proyecciones", "Backtesting", "Datos y supuestos"]
+    tab_summary, tab_eqs, tab_curves, tab_compare, tab_horizon, tab_table, tab_tree, tab_backtest, tab_data = st.tabs(
+        ["Impacto", "Ecuaciones de equilibrio", "Curvas del modelo", "Base vs simulado", "Corto vs largo plazo", "Cuentas nacionales y proyecciones", "Arbol de cuentas (MFMP)", "Backtesting", "Datos y supuestos"]
     )
 
     with tab_summary:
@@ -1004,127 +1038,275 @@ with right:
 
     with tab_table:
         st.subheader("Cuentas nacionales y proyecciones a 5 anios")
-        st.caption(
-            "5 anios historicos (DANE) + 5 anios proyectados (modelo). Los flujos historicos suman los 4 trimestres "
-            "del anio; las proyecciones aplican el % de cambio del modelo al ultimo anio observado para evitar saltos "
-            "artificiales por estacionalidad. Sin Monte Carlo: cada anio es solucion deterministica del escenario."
-        )
 
-        scenario_keys = list(PROJECTION_SCENARIOS.keys())
-        proj_scenario_name = st.selectbox(
-            "Escenario de proyeccion (5 anios)",
-            scenario_keys,
+        proj_mode = st.radio(
+            "Fuente de la proyeccion",
+            ["Senda oficial MHCP (MFMP 2026)", "Proyeccion del modelo Mundell-Fleming"],
             index=0,
-            help="Cada escenario aplica un choque sostenido durante 5 anios.",
+            horizontal=True,
+            help="La senda oficial son las cifras publicadas por el MHCP en el MFMP 2026. "
+                 "La proyeccion del modelo resuelve el Mundell-Fleming bajo un escenario de choques.",
         )
-        st.caption(PROJECTION_SCENARIOS[proj_scenario_name].description)
-        if "MFMP" in proj_scenario_name:
-            st.warning(
-                "**Proxy ilustrativo — NO son cifras oficiales del MHCP.** La senda usa supuestos "
-                "consistentes con BanRep y FMI WEO. Para simular el MFMP oficial, reemplaza "
-                "`data_processed/mfmp_proxy_scenario.csv` con las cifras del documento publicado."
-            )
 
-        try:
-            quarterly_df = pd.read_csv(ROOT / "data_processed" / "quarterly_master.csv")
-            # Ultimo anio COMPLETO (4 trimestres). Si el DANE acaba de publicar un
-            # anio parcial (p.ej. 2026Q1), no lo tomamos como ultimo observado para
-            # no anualizar un anio incompleto (ver _annualize_historical).
-            _q_por_anio = quarterly_df.dropna(subset=["year"]).groupby("year")["quarter"].nunique()
-            _anios_completos = _q_por_anio[_q_por_anio >= 4].index
-            last_observed_year = int(max(_anios_completos)) if len(_anios_completos) else int(quarterly_df["year"].dropna().max())
-            projection_df = project_scenario(
-                calibration,
-                proj_scenario_name,
-                parameters=params,
-                mobility=mobility,
-                base_year=last_observed_year,
+        # ============ MODO 1: senda oficial del MHCP (MFMP 2026) ==============
+        if proj_mode.startswith("Senda oficial"):
+            st.success(
+                "**Cifras oficiales del MFMP 2026** (Ministerio de Hacienda y Credito Publico, "
+                "Direccion General de Politica Macroeconomica). Tablas 3.1, 3.2 y Grafico 3.4 del "
+                "documento. No son salida del modelo Mundell-Fleming: es el pronostico del Gobierno."
             )
-            consolidated = build_consolidated_table(
-                quarterly_df,
-                calibration,
-                projection_df,
-                last_observed_year=last_observed_year,
-                history_years=5,
+            mfmp_df = mfmp.load()
+            horizon_label = st.radio(
+                "Horizonte",
+                ["Quinquenio 2026-2030", "Mediano plazo 2026-2037"],
+                index=0,
+                horizontal=True,
             )
-        except Exception as exc:
-            st.error(f"No se pudo construir la tabla: {exc}")
-        else:
-            display = consolidated.copy()
-            for col in display.columns:
-                display[col] = display[col].map(lambda x: "n/d" if pd.isna(x) else f"{x:,.1f}")
-            st.dataframe(display, width="stretch")
+            end_year = 2030 if horizon_label.startswith("Quinquenio") else 2037
+            path = mfmp_df[(mfmp_df["year"] >= 2026) & (mfmp_df["year"] <= end_year)].copy()
 
-            csv_bytes = to_csv_bytes(consolidated)
+            official_cols = {
+                "year": "Anio",
+                "pib_real_growth_pct": "PIB real (%)",
+                "pib_nominal_growth_pct": "PIB nominal (%)",
+                "inflation_eop_pct": "Inflacion fdp (%)",
+                "trm_average": "TRM promedio",
+                "depreciation_pct": "Depreciacion (%)",
+                "current_account_pct_gdp": "Cta. corriente (% PIB)",
+                "gnc_fiscal_balance_pct_gdp": "Balance fiscal GNC (% PIB)",
+                "gnc_primary_balance_pct_gdp": "Balance primario (% PIB)",
+                "gnc_net_debt_pct_gdp": "Deuda neta GNC (% PIB)",
+                "nominal_gdp_cop_billion": "PIB nominal (bn COP)",
+            }
+            tbl = path[list(official_cols.keys())].rename(columns=official_cols)
+            disp = tbl.copy()
+            disp["Anio"] = disp["Anio"].astype(int).astype(str)
+            disp["TRM promedio"] = disp["TRM promedio"].map(lambda x: f"{x:,.0f}")
+            disp["PIB nominal (bn COP)"] = disp["PIB nominal (bn COP)"].map(lambda x: f"{x:,.0f}")
+            for c in disp.columns:
+                if c not in ("Anio", "TRM promedio", "PIB nominal (bn COP)"):
+                    disp[c] = disp[c].map(lambda x: f"{x:,.1f}")
+            st.dataframe(disp.set_index("Anio").T, width="stretch")
+
             st.download_button(
-                "Descargar CSV",
-                data=csv_bytes,
-                file_name=f"MF_Colombia_{mobility}_{proj_scenario_name.replace(' ', '_')}.csv",
+                "Descargar CSV (MFMP oficial)",
+                data=to_csv_bytes(tbl),
+                file_name=f"MFMP_2026_oficial_2026_{end_year}.csv",
                 mime="text/csv",
-                help="Tabla completa en CSV UTF-8 con BOM (compatible con Excel en espanol).",
             )
 
             st.divider()
-            st.subheader(f"Trayectoria proyectada con sensibilidad ±{SENSITIVITY_PCT:.0f}%")
-            st.caption(
-                f"**Barrido de sensibilidad sobre la MAGNITUD del choque, NO una banda de confianza estadistica.** "
-                f"Las trayectorias 'alta' y 'baja' re-aplican el escenario con la magnitud de cada choque escalada "
-                f"±{SENSITIVITY_PCT:.0f}%. El valor {SENSITIVITY_PCT:.0f}% se eligio como referencia de la incertidumbre "
-                f"de calibracion (del orden de ~2 errores estandar relativos de la elasticidad mejor identificada, "
-                f"eta_import_y = 2.70, SE 0.18 -> ~13%), pero se aplica a la magnitud del choque, no se propaga "
-                f"formalmente el parametro. No es Monte Carlo ni intervalo bayesiano: es analisis de sensibilidad "
-                f"deterministico."
-            )
-
-            sens = project_with_sensitivity(
-                calibration,
-                proj_scenario_name,
-                parameters=params,
-                mobility=mobility,
-                base_year=last_observed_year,
-                sensitivity_pct=SENSITIVITY_PCT,
-            )
-
-            variable_options = {
-                "TRM (COP/USD)": "trm_cop_per_usd",
-                "PIB real trimestral (COP bn)": "gdp_real_cop_billion",
-                "Tasa de interes (%)": "policy_rate_pct",
-                "Brecha del producto (%)": "output_gap_pct",
-                "Cuenta corriente (USD m)": "current_account_usd_m",
+            st.markdown("**Trayectoria oficial**")
+            mfmp_var_opts = {
+                "TRM promedio (COP/USD)": ("trm_average", ",.0f"),
+                "Crecimiento PIB real (%)": ("pib_real_growth_pct", ".1f"),
+                "Balance fiscal GNC (% PIB)": ("gnc_fiscal_balance_pct_gdp", ".1f"),
+                "Balance primario GNC (% PIB)": ("gnc_primary_balance_pct_gdp", ".1f"),
+                "Cuenta corriente (% PIB)": ("current_account_pct_gdp", ".1f"),
+                "Deuda neta GNC (% PIB)": ("gnc_net_debt_pct_gdp", ".1f"),
             }
-            sel_label = st.selectbox(
-                "Variable a graficar",
-                list(variable_options.keys()),
-                index=0,
+            mfmp_sel = st.selectbox("Variable a graficar", list(mfmp_var_opts.keys()), index=0)
+            mvar, _ = mfmp_var_opts[mfmp_sel]
+            fig_off = go.Figure()
+            fig_off.add_trace(go.Scatter(
+                x=path["year"].astype(int), y=path[mvar],
+                mode="lines+markers", name=mfmp_sel,
+                line={"color": "#2563eb", "width": 3},
+            ))
+            fig_off.update_layout(xaxis_title="Anio", yaxis_title=mfmp_sel, hovermode="x unified")
+            fig_off.update_xaxes(dtick=1)
+            st.plotly_chart(plot_theme(fig_off, 420), width="stretch")
+            st.caption(
+                "Fuente: MFMP 2026, MHCP-DGPM. La TRM proyectada por el MHCP pasa de 3.757 (2026) a "
+                "4.112 (2030) y 4.769 (2037); el balance fiscal del GNC se consolida de -5,3% a -3,1% "
+                "del PIB en el quinquenio, con balance primario positivo desde 2028."
             )
-            sel_var = variable_options[sel_label]
 
-            fig_sens = go.Figure()
-            years = sens["central"]["year"]
-            fig_sens.add_trace(go.Scatter(
-                x=years, y=sens["high"][sel_var], mode="lines",
-                name=f"Alta (+{SENSITIVITY_PCT:.0f}%)",
-                line={"color": "rgba(220,38,38,0.3)", "width": 1},
-                showlegend=True,
-            ))
-            fig_sens.add_trace(go.Scatter(
-                x=years, y=sens["low"][sel_var], mode="lines",
-                name=f"Baja (-{SENSITIVITY_PCT:.0f}%)",
-                line={"color": "rgba(220,38,38,0.3)", "width": 1},
-                fill="tonexty", fillcolor="rgba(220,38,38,0.12)",
-                showlegend=True,
-            ))
-            fig_sens.add_trace(go.Scatter(
-                x=years, y=sens["central"][sel_var], mode="lines+markers",
-                name="Central",
-                line={"color": "#dc2626", "width": 3},
-            ))
-            fig_sens.update_layout(
-                xaxis_title="Anio",
-                yaxis_title=sel_label,
-                hovermode="x unified",
+        # ============ MODO 2: proyeccion del modelo Mundell-Fleming ===========
+        else:
+            st.caption(
+                "5 anios historicos (DANE) + 5 anios proyectados (modelo). Los flujos historicos suman los 4 trimestres "
+                "del anio; las proyecciones aplican el % de cambio del modelo al ultimo anio observado para evitar saltos "
+                "artificiales por estacionalidad. Sin Monte Carlo: cada anio es solucion deterministica del escenario."
             )
-            st.plotly_chart(plot_theme(fig_sens, 420), width="stretch")
+
+            scenario_keys = list(PROJECTION_SCENARIOS.keys())
+            proj_scenario_name = st.selectbox(
+                "Escenario de proyeccion (5 anios)",
+                scenario_keys,
+                index=0,
+                help="Cada escenario aplica un choque sostenido durante 5 anios.",
+            )
+            st.caption(PROJECTION_SCENARIOS[proj_scenario_name].description)
+
+            try:
+                quarterly_df = pd.read_csv(ROOT / "data_processed" / "quarterly_master.csv")
+                # Ultimo anio COMPLETO (4 trimestres). Si el DANE acaba de publicar un
+                # anio parcial (p.ej. 2026Q1), no lo tomamos como ultimo observado para
+                # no anualizar un anio incompleto (ver _annualize_historical).
+                _q_por_anio = quarterly_df.dropna(subset=["year"]).groupby("year")["quarter"].nunique()
+                _anios_completos = _q_por_anio[_q_por_anio >= 4].index
+                last_observed_year = int(max(_anios_completos)) if len(_anios_completos) else int(quarterly_df["year"].dropna().max())
+                projection_df = project_scenario(
+                    calibration,
+                    proj_scenario_name,
+                    parameters=params,
+                    mobility=mobility,
+                    base_year=last_observed_year,
+                )
+                consolidated = build_consolidated_table(
+                    quarterly_df,
+                    calibration,
+                    projection_df,
+                    last_observed_year=last_observed_year,
+                    history_years=5,
+                )
+            except Exception as exc:
+                st.error(f"No se pudo construir la tabla: {exc}")
+            else:
+                display = consolidated.copy()
+                for col in display.columns:
+                    display[col] = display[col].map(lambda x: "n/d" if pd.isna(x) else f"{x:,.1f}")
+                st.dataframe(display, width="stretch")
+
+                csv_bytes = to_csv_bytes(consolidated)
+                st.download_button(
+                    "Descargar CSV",
+                    data=csv_bytes,
+                    file_name=f"MF_Colombia_{mobility}_{proj_scenario_name.replace(' ', '_')}.csv",
+                    mime="text/csv",
+                    help="Tabla completa en CSV UTF-8 con BOM (compatible con Excel en espanol).",
+                )
+
+                st.divider()
+                st.subheader(f"Trayectoria proyectada con sensibilidad ±{SENSITIVITY_PCT:.0f}%")
+                st.caption(
+                    f"**Barrido de sensibilidad sobre la MAGNITUD del choque, NO una banda de confianza estadistica.** "
+                    f"Las trayectorias 'alta' y 'baja' re-aplican el escenario con la magnitud de cada choque escalada "
+                    f"±{SENSITIVITY_PCT:.0f}%. El valor {SENSITIVITY_PCT:.0f}% se eligio como referencia de la incertidumbre "
+                    f"de calibracion (del orden de ~2 errores estandar relativos de la elasticidad mejor identificada, "
+                    f"eta_import_y = 2.70, SE 0.18 -> ~13%), pero se aplica a la magnitud del choque, no se propaga "
+                    f"formalmente el parametro. No es Monte Carlo ni intervalo bayesiano: es analisis de sensibilidad "
+                    f"deterministico."
+                )
+
+                sens = project_with_sensitivity(
+                    calibration,
+                    proj_scenario_name,
+                    parameters=params,
+                    mobility=mobility,
+                    base_year=last_observed_year,
+                    sensitivity_pct=SENSITIVITY_PCT,
+                )
+
+                variable_options = {
+                    "TRM (COP/USD)": "trm_cop_per_usd",
+                    "PIB real trimestral (COP bn)": "gdp_real_cop_billion",
+                    "Tasa de interes (%)": "policy_rate_pct",
+                    "Brecha del producto (%)": "output_gap_pct",
+                    "Cuenta corriente (USD m)": "current_account_usd_m",
+                }
+                sel_label = st.selectbox(
+                    "Variable a graficar",
+                    list(variable_options.keys()),
+                    index=0,
+                )
+                sel_var = variable_options[sel_label]
+
+                fig_sens = go.Figure()
+                years = sens["central"]["year"]
+                fig_sens.add_trace(go.Scatter(
+                    x=years, y=sens["high"][sel_var], mode="lines",
+                    name=f"Alta (+{SENSITIVITY_PCT:.0f}%)",
+                    line={"color": "rgba(220,38,38,0.3)", "width": 1},
+                    showlegend=True,
+                ))
+                fig_sens.add_trace(go.Scatter(
+                    x=years, y=sens["low"][sel_var], mode="lines",
+                    name=f"Baja (-{SENSITIVITY_PCT:.0f}%)",
+                    line={"color": "rgba(220,38,38,0.3)", "width": 1},
+                    fill="tonexty", fillcolor="rgba(220,38,38,0.12)",
+                    showlegend=True,
+                ))
+                fig_sens.add_trace(go.Scatter(
+                    x=years, y=sens["central"][sel_var], mode="lines+markers",
+                    name="Central",
+                    line={"color": "#dc2626", "width": 3},
+                ))
+                fig_sens.update_layout(
+                    xaxis_title="Anio",
+                    yaxis_title=sel_label,
+                    hovermode="x unified",
+                )
+                st.plotly_chart(plot_theme(fig_sens, 420), width="stretch")
+
+    with tab_tree:
+        st.subheader("Arbol de descomposicion de la contabilidad nacional")
+        st.caption(
+            "Descomposicion de las cuentas externas (balanza de pagos) y fiscales (GNC) para un anio, "
+            "con cifras oficiales del MFMP 2026 (MHCP-DGPM). El arbol agrupa creditos (verde) y debitos "
+            "(rojo); el saldo neto de cada cuenta se reporta como identidad contable. Valores en % del PIB "
+            "(autoritativos) y su equivalente en billones COP y millones USD (derivados del PIB nominal y la TRM)."
+        )
+
+        mfmp_df = mfmp.load()
+        years_avail = [int(y) for y in mfmp_df["year"].tolist()]
+        tree_year = st.select_slider(
+            "Anio",
+            options=years_avail,
+            value=2026 if 2026 in years_avail else years_avail[0],
+        )
+        tree = mfmp.national_accounts_tree(tree_year, mfmp_df)
+
+        cc = next(n for n in tree["external"] if n["label"] == "Cuenta corriente")
+        tb = next(n for n in tree["external"] if n["label"] == "Balanza comercial (bienes)")
+        bal = next(n for n in tree["fiscal"] if n["label"] == "Balance fiscal total (GNC)")
+
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
+        k1.metric("PIB nominal", f"{tree['nominal_gdp_cop_billion']:,.0f} bn COP")
+        k2.metric("TRM promedio", f"{tree['trm_average']:,.0f}")
+        k3.metric("Cuenta corriente", f"{cc['value_pct']:+.1f}% PIB", f"{cc['value_usd_m']:,.0f} USD m")
+        k4.metric("Balanza comercial", f"{tb['value_pct']:+.1f}% PIB", f"{tb['value_usd_m']:,.0f} USD m")
+        k5.metric("Balance fiscal GNC", f"{bal['value_pct']:+.1f}% PIB")
+        k6.metric("Balance primario", f"{tree['primary_balance_pct_gdp']:+.1f}% PIB")
+
+        col_ext, col_fis = st.columns(2)
+        with col_ext:
+            st.markdown("#### Sector externo — Balanza de pagos")
+            fig_ext = account_icicle(tree["external_leaves"], f"Sector externo {tree_year}")
+            st.plotly_chart(plot_theme(fig_ext, 360), width="stretch")
+            st.markdown(
+                f"**Identidad de cuenta corriente ({tree_year}):** "
+                f"`Cta. corriente ({cc['value_pct']:+.1f}) = Balanza comercial ({tb['value_pct']:+.1f}) "
+                f"+ Servicios + Renta factorial + Transferencias`. "
+                f"El deficit corriente se financia por la **cuenta financiera** "
+                f"({tree['financial_account_pct_gdp']:+.1f}% del PIB), cubierta en ~"
+                f"{tree['ied_share_medium_term']*100:.0f}% por IED en el mediano plazo (MFMP)."
+            )
+            st.dataframe(
+                account_identity_rows(tree["external"]).set_index("Concepto"),
+                width="stretch",
+            )
+        with col_fis:
+            st.markdown("#### Sector fiscal — Gobierno Nacional Central")
+            fig_fis = account_icicle(tree["fiscal_leaves"], f"GNC {tree_year}")
+            st.plotly_chart(plot_theme(fig_fis, 360), width="stretch")
+            st.markdown(
+                f"**Identidad fiscal ({tree_year}):** "
+                f"`Balance total ({bal['value_pct']:+.1f}) = Ingreso total - Gasto total`; "
+                f"`Balance primario ({tree['primary_balance_pct_gdp']:+.1f}) = Balance total + Intereses`. "
+                f"Deuda neta del GNC: **{tree['net_debt_pct_gdp']:.1f}% del PIB**."
+            )
+            st.dataframe(
+                account_identity_rows(tree["fiscal"]).set_index("Concepto"),
+                width="stretch",
+            )
+
+        st.caption(
+            "Fuente: MFMP 2026 (MHCP-DGPM), Tablas 3.1 y 3.2 y Grafico 3.4. La linea de servicios se "
+            "reconcilia para cerrar la identidad de cuenta corriente; las sumas de componentes pueden "
+            "diferir <=0,1pp del total reportado por el redondeo del documento a un decimal."
+        )
 
     with tab_backtest:
         st.subheader("Backtesting contra realidad colombiana")

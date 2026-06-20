@@ -6,3 +6,7 @@ __pycache__/
 .env
 .env.*
 _zip_stage/
+# PDFs fuente y dumps de texto: no se versionan (los datos relevantes ya estan
+# transcritos en src/mfmp_official.py + data_processed/mfmp_2026_oficial.csv).
+*.pdf
+mfmp_text.txt
