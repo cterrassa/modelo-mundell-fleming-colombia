@@ -80,7 +80,7 @@ Detalles en `DEPLOYMENT.md`.
 
 ## Tests
 
-Suite completa (50 tests). `tests/test_signs.py` ejecuta como aserciones pytest
+Suite completa (52 tests). `tests/test_signs.py` ejecuta como aserciones pytest
 los **22 chequeos de signo** (9 perfecta + 8 imperfecta + 5 fijo) sobre los 3
 regimenes:
 
